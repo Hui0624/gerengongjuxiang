@@ -77,7 +77,11 @@
 
   <div class="layout">
     <nav class="sidenav">
-      <button class="nav-item active" data-view="timeline">
+      <button class="nav-item active" data-view="home">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg></span>
+        <span>首页</span>
+      </button>
+      <button class="nav-item" data-view="timeline">
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.4"/><path d="M8 3.2v3.4M16 3.2v3.4M3.5 10h17"/><path d="M8 14h3.5M8 17.2h6"/></svg></span>
         <span>时间线</span>
       </button>
@@ -96,8 +100,37 @@
     </nav>
 
     <main class="content">
+      <!-- 首页总览 -->
+      <section id="view-home" class="view active">
+        <div class="home-hero">
+          <div class="home-greet" id="homeGreet"></div>
+          <div class="home-date" id="homeDate"></div>
+        </div>
+        <div class="home-stats" id="homeStats"></div>
+        <div class="home-cols">
+          <div class="home-col">
+            <div class="section-head"><h2>今日待办</h2><span class="hint" id="homeTodoHint"></span></div>
+            <div id="homeTodo" class="home-box"></div>
+          </div>
+          <div class="home-col">
+            <div class="section-head"><h2>今日课程</h2><span class="hint">点「时间线」看完整</span></div>
+            <div id="homeCourses" class="home-box"></div>
+          </div>
+        </div>
+        <div class="home-cols">
+          <div class="home-col">
+            <div class="section-head"><h2>今日打卡</h2><span class="hint">点 ✓ 记今天</span></div>
+            <div id="homeHabits" class="home-box"></div>
+          </div>
+          <div class="home-col">
+            <div class="section-head"><h2>技能进度</h2><span class="hint">平均掌握度</span></div>
+            <div id="homeSkills" class="home-box"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- 时间线 / 周课表 -->
-      <section id="view-timeline" class="view active">
+      <section id="view-timeline" class="view">
         <div class="next-card" id="nextCard"></div>
         <div class="section-head">
           <h2 id="tlTitle">今日时间线</h2>
@@ -123,6 +156,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5l7 7-7 7"/></svg>
               </button>
               <button class="btn ghost" id="wkNow">本周</button>
+              <button class="btn ghost" id="wkFull" title="适配全屏：把整周缩到一屏查看">⤢ 整周</button>
             </div>
             <span class="wk-range" id="wkRange"></span>
             <label class="wk-term">

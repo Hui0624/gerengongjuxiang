@@ -1625,12 +1625,124 @@ function importJSON(file) {
 }
 
 /* =========================================================
+   首页总览（聚合今日待办 / 课程 / 打卡 / 技能）
+   ========================================================= */
+function renderHome() {
+  const elStats = $("#homeStats"), elTodo = $("#homeTodo"), elCourses = $("#homeCourses");
+  const elHabits = $("#homeHabits"), elSkills = $("#homeSkills");
+  if (!elStats) return;
+
+  const now = new Date();
+  const h = now.getHours();
+  const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
+  const day = todayWeekday();
+  const wno = todayWeekNo();
+  const today = todayStr();
+
+  // 今日待办
+  const todos = Store.data.todos.filter(t => t.date === today);
+  const todoDone = todos.filter(t => t.done).length;
+  // 今日课程（按周次过滤）
+  const courses = Store.data.courses
+    .filter(c => c.day === day && inWeek(c, wno))
+    .sort((a, b) => hhmmToMin(a.start) - hhmmToMin(b.start));
+  // 打卡
+  const habits = Store.data.habits;
+  const todayChecked = habits.filter(x => x.history && x.history[today]).length;
+  // 技能平均进度
+  const skills = Store.data.skills;
+  const avg = skills.length ? Math.round(skills.reduce((s, k) => s + (k.progress || 0), 0) / skills.length) : 0;
+
+  $("#homeGreet").textContent = `${greet}，小辉`;
+  $("#homeDate").textContent =
+    `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${weekdayName(day)}` +
+    (wno ? ` · 第 ${wno} 周` : "");
+
+  const I = {
+    todo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg>`,
+    course: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.4"/><path d="M8 3.2v3.4M16 3.2v3.4M3.5 10h17"/><path d="M8 14h3.5M8 17.2h6"/></svg>`,
+    checkin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c3.6 0 6.5-2.7 6.5-6.2 0-2.4-1.3-4.2-3-6.1-1.3-1.5-2.6-3.1-3-5.2-.6 1.6-1.7 2.7-2.9 4C8 9.2 6.4 11 6.4 13.5 6.4 17.8 8.9 21 12 21z"/></svg>`,
+    skill: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9.5M9.3 19V5M14.6 19v-7.5M20 19v-4.5"/><path d="M3 21h18"/></svg>`
+  };
+  const stats = [
+    { c: "blue", icon: I.todo, label: "今日待办", value: `${todoDone}/${todos.length}`, sub: todos.length ? (todoDone === todos.length ? "全部完成 🎉" : "进行中") : "暂无" },
+    { c: "green", icon: I.course, label: "今日课程", value: `${courses.length} 门`, sub: courses.length ? courses[0].name : "今天没课" },
+    { c: "orange", icon: I.checkin, label: "今日打卡", value: `${todayChecked}/${habits.length}`, sub: habits.length ? (todayChecked === habits.length ? "已全打卡" : "待打卡") : "暂无习惯" },
+    { c: "purple", icon: I.skill, label: "技能进度", value: `${avg}%`, sub: skills.length ? `共 ${skills.length} 项` : "暂无" }
+  ];
+  elStats.innerHTML = stats.map(s => `
+    <div class="stat-card" data-c="${s.c}">
+      <div class="stat-ic">${s.icon}</div>
+      <div class="stat-body">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}</div>
+        <div class="stat-sub">${s.sub}</div>
+      </div>
+    </div>`).join("");
+
+  // 今日待办
+  if (!todos.length) elTodo.innerHTML = `<div class="empty-hint">今天还没有待办</div>`;
+  else elTodo.innerHTML = todos.slice(0, 6).map(t => `
+    <div class="home-todo-item ${t.done ? "done" : ""}">
+      <span class="ht-check ${t.done ? "on" : ""}">${t.done ? "✓" : ""}</span>
+      <span class="ht-text">${esc(t.text)}</span>
+      ${t.time ? `<span class="ht-time">${t.time}</span>` : ""}
+    </div>`).join("");
+
+  // 今日课程
+  if (!courses.length) elCourses.innerHTML = `<div class="empty-hint">今天没有课程</div>`;
+  else elCourses.innerHTML = courses.map(c => {
+    const hue = hueOf(c.name);
+    const r = jcRangeOf(c);
+    return `<div class="home-course" style="--hue:${hue}">
+      <span class="hc-time">${esc(c.start)}<br>${esc(c.end)}</span>
+      <div class="hc-body">
+        <div class="hc-name">${esc(c.name)}</div>
+        <div class="hc-meta">${r[0] === r[1] ? r[0] + " 节" : r[0] + "-" + r[1] + " 节"}${c.room ? " · " + esc(c.room) : ""}${c.teacher ? " · " + esc(c.teacher) : ""}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // 今日打卡
+  if (!habits.length) elHabits.innerHTML = `<div class="empty-hint">还没有习惯</div>`;
+  else elHabits.innerHTML = habits.map(x => {
+    const done = !!(x.history && x.history[today]);
+    return `<div class="home-habit ${done ? "done" : ""}" data-id="${x.id}">
+      <button class="hh-check ${done ? "on" : ""}" data-act="home-toggle" title="今日打卡">✓</button>
+      <span class="hh-name">${esc(x.name)}</span>
+      <span class="hh-streak">🔥${calcStreak(x.history)}</span>
+    </div>`;
+  }).join("");
+
+  // 技能进度
+  if (!skills.length) elSkills.innerHTML = `<div class="empty-hint">还没有技能</div>`;
+  else elSkills.innerHTML = skills.map(k => `
+    <div class="home-skill">
+      <div class="hs-top"><span class="hs-name">${esc(k.name)}</span><span class="hs-pct">${k.progress || 0}%</span></div>
+      <div class="hs-bar"><div class="hs-fill" style="width:${Math.min(100, k.progress || 0)}%"></div></div>
+    </div>`).join("");
+}
+
+/* 周课表：整周适配 / 原生全屏 */
+function toggleWkFull() {
+  const pane = $("#weekPane");
+  if (!pane) return;
+  const on = pane.classList.toggle("compact");
+  const btn = $("#wkFull");
+  if (btn) { btn.classList.toggle("on", on); btn.textContent = on ? "⤡ 退出" : "⤢ 整周"; }
+  if (on) { if (pane.requestFullscreen) pane.requestFullscreen().catch(() => {}); }
+  else { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
+}
+
+/* =========================================================
    视图切换 & 初始化
    ========================================================= */
 function switchView(view) {
   $$(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
-  if (view === "timeline") {
+  if (view === "home") {
+    renderHome();
+  } else if (view === "timeline") {
     renderNextCard();
     if (tlMode === "week") renderWeek();
     else renderTimeline(true);
@@ -1639,6 +1751,7 @@ function switchView(view) {
 
 function renderAll(scrollToNow = true) {
   renderTopbar();
+  renderHome();
   renderTimeline(scrollToNow);
   if (tlMode === "week") renderWeek();
   renderNextCard();
@@ -1714,6 +1827,27 @@ function init() {
   $("#importBtn").addEventListener("click", openImportModal);
   $("#settingsBtn").addEventListener("click", openSettings);
   $("#themeBtn").addEventListener("click", openThemeModal);
+
+  /* 首页：今日打卡快捷切换 */
+  $("#homeHabits").addEventListener("click", e => {
+    const btn = e.target.closest("[data-act='home-toggle']");
+    if (!btn) return;
+    const id = btn.closest(".home-habit").dataset.id;
+    toggleHabit(id);
+    renderHome();
+  });
+
+  /* 周课表：整周适配 / 全屏 */
+  const fullBtn = $("#wkFull");
+  if (fullBtn) fullBtn.addEventListener("click", toggleWkFull);
+  document.addEventListener("fullscreenchange", () => {
+    const pane = $("#weekPane");
+    if (!document.fullscreenElement && pane && pane.classList.contains("compact")) {
+      pane.classList.remove("compact");
+      const b = $("#wkFull");
+      if (b) { b.classList.remove("on"); b.textContent = "⤢ 整周"; }
+    }
+  });
 
   /* 弹窗关闭 */
   $("#modalClose").addEventListener("click", closeModal);
