@@ -846,6 +846,7 @@ function openAddSkill() {
 /* =========================================================
    打卡
    ========================================================= */
+const WD_LABEL = ["一", "二", "三", "四", "五", "六", "日"]; // 1=周一 .. 7=周日
 function calcStreak(history) {
   let count = 0;
   const d = new Date();
@@ -869,6 +870,36 @@ function last7Days(history) {
   return out;
 }
 
+function habitFreqText(h) {
+  if (h.freq === "weekly") {
+    const ds = (h.days && h.days.length) ? h.days : [1, 2, 3, 4, 5, 6, 7];
+    const labels = ds.slice().sort((a, b) => a - b).map(d => WD_LABEL[(d - 1 + 7) % 7]).join("");
+    return "每周" + (ds.length >= 7 ? "" : labels);
+  }
+  return "每天";
+}
+
+/* 计算当前周期的打卡进度 */
+function habitProgress(h) {
+  if (h.freq === "weekly") {
+    const allowed = (h.days && h.days.length) ? h.days : [1, 2, 3, 4, 5, 6, 7];
+    const mon = mondayOf(new Date());
+    let cnt = 0;
+    for (const k in (h.history || {})) {
+      if (!h.history[k]) continue;
+      const d = new Date(k + "T00:00:00");
+      if (isNaN(d.getTime())) continue;
+      const diff = Math.round((d.getTime() - mon.getTime()) / 864e5);
+      if (diff < 0 || diff >= 7) continue;
+      const wd = d.getDay() === 0 ? 7 : d.getDay();
+      if (allowed.includes(wd)) cnt++;
+    }
+    const target = (h.target && h.target > 0) ? h.target : 1;
+    return { type: "weekly", cur: cnt, target, done: cnt >= target };
+  }
+  return { type: "daily", done: !!h.history[todayStr()] };
+}
+
 function renderCheckin() {
   const list = $("#habitList");
   const habits = Store.data.habits;
@@ -880,22 +911,41 @@ function renderCheckin() {
   }
 
   list.innerHTML = habits.map(h => {
+    if (!h.freq) h.freq = "daily";
+    if (!h.days || !h.days.length) h.days = [1, 2, 3, 4, 5, 6, 7];
+    if (!h.target) h.target = 1;
     const done = !!h.history[today];
     const streak = calcStreak(h.history);
+    const prog = habitProgress(h);
+    const progText = prog.type === "weekly"
+      ? `本周 ${prog.cur}/${prog.target} 次`
+      : (prog.done ? "今日已打卡" : "今日未打卡");
+    const progClass = prog.done ? "ok" : "no";
     const days = last7Days(h.history);
     return `
       <div class="habit-item" data-id="${h.id}">
-        <div class="habit-info">
+        <div class="habit-main">
           <div class="habit-name">${esc(h.name)}</div>
-          <div class="habit-streak">🔥 连续 ${streak} 天</div>
+          <div class="habit-meta">
+            <span class="habit-streak">🔥 连续 ${streak} 天</span>
+            <span class="habit-prog ${progClass}">${progText}</span>
+            <span class="habit-freq">${habitFreqText(h)}</span>
+          </div>
+          <div class="habit-days" title="点某天圆点可补卡 / 取消">
+            ${days.map(d => `<div class="hd ${d.on ? "on" : ""} ${d.isToday ? "today" : ""}" data-act="day" data-date="${d.date}"></div>`).join("")}
+          </div>
         </div>
-        <div class="habit-days">
-          ${days.map(d => `<div class="hd ${d.on ? "on" : ""} ${d.isToday ? "today" : ""}" title="${d.date}"></div>`).join("")}
+        <div class="habit-actions">
+          <button class="habit-today ${done ? "done" : ""}" data-act="toggle" title="今日打卡">
+            <span class="check">✓</span>
+          </button>
+          <button class="ti-edit" data-act="edit" title="设置周期 / 次数">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.6 1.6 0 0 0 15 19.4a1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.09A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.6 1.6 0 0 0 4.6 15a1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.09A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.6 1.6 0 0 0 9 4.6 1.6 1.6 0 0 0 10 3.13V3a2 2 0 1 1 4 0v.09A1.6 1.6 0 0 0 15 4.6a1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.6 1.6 0 0 0 19.4 9v.09a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.09a1.6 1.6 0 0 0-1.51.91z"/></svg>
+          </button>
+          <button class="ti-del" data-act="del" title="删除习惯">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
         </div>
-        <button class="habit-today ${done ? "done" : ""}" data-act="toggle" title="今日打卡">
-          <span class="check">✓</span>
-        </button>
-        <button class="ti-del" data-act="del" title="删除">✕</button>
       </div>`;
   }).join("");
 }
@@ -910,10 +960,29 @@ function toggleHabit(id) {
   renderCheckin();
 }
 
+/* 补卡 / 取消某一天（点击 7 天圆点） */
+function toggleHabitDate(id, date) {
+  const h = Store.data.habits.find(x => x.id === id);
+  if (!h) return;
+  const isToday = date === todayStr();
+  if (h.history[date]) {
+    if (!isToday && !confirm(`取消 ${date} 的打卡记录？`)) return;
+    delete h.history[date];
+  } else {
+    if (!isToday && !confirm(`补记 ${date} 的打卡？`)) return;
+    h.history[date] = true;
+  }
+  Store.save();
+  renderCheckin();
+}
+
 function addHabit() {
   const name = $("#habitText").value.trim();
   if (!name) return;
-  Store.data.habits.push({ id: uid(), name, history: {} });
+  Store.data.habits.push({
+    id: uid(), name, history: {},
+    freq: "daily", days: [1, 2, 3, 4, 5, 6, 7], target: 1
+  });
   Store.save();
   $("#habitText").value = "";
   renderCheckin();
@@ -926,6 +995,71 @@ function deleteHabit(id) {
   Store.data.habits = Store.data.habits.filter(x => x.id !== id);
   Store.save();
   renderCheckin();
+}
+
+/* 设置：名称 / 周期 / 星期 / 目标次数 */
+function editHabit(id) {
+  const h = Store.data.habits.find(x => x.id === id);
+  if (!h) return;
+  if (!h.freq) h.freq = "daily";
+  if (!h.days || !h.days.length) h.days = [1, 2, 3, 4, 5, 6, 7];
+  if (!h.target) h.target = 1;
+
+  const dayChecks = [1, 2, 3, 4, 5, 6, 7].map(d =>
+    `<label class="day-chk"><input type="checkbox" value="${d}" ${h.days.includes(d) ? "checked" : ""}/> ${WD_LABEL[(d - 1 + 7) % 7]}</label>`
+  ).join("");
+
+  const html = `
+    <div class="field">
+      <label>习惯名称</label>
+      <input id="hbName" class="input" value="${esc(h.name)}" />
+    </div>
+    <div class="field">
+      <label>打卡周期</label>
+      <div class="seg" id="hbFreqSeg">
+        <button type="button" class="seg-btn ${h.freq === "daily" ? "active" : ""}" data-f="daily">每天</button>
+        <button type="button" class="seg-btn ${h.freq === "weekly" ? "active" : ""}" data-f="weekly">每周</button>
+      </div>
+    </div>
+    <div class="field" id="hbDaysField" style="${h.freq === "weekly" ? "" : "display:none"}">
+      <label>选哪几天算（不选＝全部）</label>
+      <div class="day-chks">${dayChecks}</div>
+    </div>
+    <div class="field">
+      <label>目标次数（每周期）</label>
+      <input id="hbTarget" type="number" min="1" max="21" class="input" value="${h.target}" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="hbCancel">取消</button>
+      <button class="btn primary" id="hbSave">保存</button>
+    </div>`;
+
+  openModal("设置「" + h.name + "」", html, body => {
+    const seg = $("#hbFreqSeg", body);
+    const daysField = $("#hbDaysField", body);
+    seg.addEventListener("click", e => {
+      const b = e.target.closest(".seg-btn");
+      if (!b) return;
+      seg.querySelectorAll(".seg-btn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      daysField.style.display = b.dataset.f === "weekly" ? "" : "none";
+    });
+    $("#hbCancel", body).addEventListener("click", closeModal);
+    $("#hbSave", body).addEventListener("click", () => {
+      const name = $("#hbName", body).value.trim() || h.name;
+      const freq = seg.querySelector(".seg-btn.active").dataset.f;
+      const days = Array.from(daysField.querySelectorAll("input:checked")).map(i => Number(i.value));
+      let target = parseInt($("#hbTarget", body).value, 10);
+      if (isNaN(target) || target < 1) target = 1;
+      h.name = name;
+      h.freq = freq;
+      h.days = freq === "weekly" ? (days.length ? days : [1, 2, 3, 4, 5, 6, 7]) : [1, 2, 3, 4, 5, 6, 7];
+      h.target = target;
+      Store.save();
+      renderCheckin();
+      closeModal();
+    });
+  });
 }
 
 /* =========================================================
@@ -1565,9 +1699,14 @@ function init() {
   $("#habitList").addEventListener("click", e => {
     const btn = e.target.closest("[data-act]");
     if (!btn) return;
-    const id = btn.closest(".habit-item").dataset.id;
-    if (btn.dataset.act === "toggle") toggleHabit(id);
-    if (btn.dataset.act === "del") deleteHabit(id);
+    const item = btn.closest(".habit-item");
+    if (!item) return;
+    const id = item.dataset.id;
+    const act = btn.dataset.act;
+    if (act === "toggle") toggleHabit(id);
+    else if (act === "del") deleteHabit(id);
+    else if (act === "edit") editHabit(id);
+    else if (act === "day") toggleHabitDate(id, btn.dataset.date);
   });
 
   /* 技能 / 导入 / 设置 / 皮肤 */
