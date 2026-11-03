@@ -531,6 +531,10 @@ input, textarea, select { font-family: inherit; }
   .nav-item { font-size: 10px; padding: 7px 1px; gap: 2px; }
   .topbar-actions .btn.ghost span { display: none; }
   .topbar-actions .btn.ghost svg { width: 17px; height: 17px; }
+  /* 极窄屏：下方列表改单列，课程/习惯文字不被压 */
+  .home-cols { grid-template-columns: 1fr; }
+  .stat-label { font-size: 10px; }
+  .stat-value { font-size: 16px; }
 }
 
 /* 滚动条 */
@@ -782,20 +786,23 @@ input, textarea, select { font-family: inherit; }
   .wk-chip .wc-name { font-size: 10.5px; }
   .wk-chip .wc-meta { font-size: 9.5px; }
 
-  /* 首页：手机端保持桌面式排版（统计卡 4 列一行、下方两列），仅收紧尺寸铺满屏不溢出 */
-  .home-stats { gap: 8px; }
-  .home-cols { gap: 10px; }
-  .stat-card { padding: 9px; gap: 8px; }
-  .stat-ic { width: 32px; height: 32px; border-radius: 9px; }
-  .stat-ic svg { width: 16px; height: 16px; }
-  .stat-value { font-size: 17px; }
-  .stat-label { font-size: 11px; }
+  /* 首页：手机端统计卡改「图标在上·文字居中」紧凑小卡片，4 列一行铺满屏不溢出 */
+  .home-stats { gap: 8px; margin-bottom: 16px; }
+  .stat-card {
+    flex-direction: column; align-items: center; text-align: center;
+    padding: 11px 5px; gap: 6px;
+  }
+  .stat-ic { width: 32px; height: 32px; border-radius: 10px; }
+  .stat-ic svg { width: 17px; height: 17px; }
+  .stat-label { font-size: 11px; white-space: nowrap; }
+  .stat-value { font-size: 18px; margin-top: 0; }
   .stat-sub { font-size: 10px; }
-  .home-hero { margin-bottom: 14px; }
-  .home-greet { font-size: 21px; }
+  .home-hero { margin-bottom: 12px; }
+  .home-date { font-size: 14px; }
+  .home-cols { gap: 10px; }
   .home-box { padding: 8px 13px; }
-  .section-head { margin: 4px 0 11px; }
-  .section-head h2 { font-size: 16px; }
+  .section-head { margin: 6px 0 10px; }
+  .section-head h2 { font-size: 15px; }
 }
 
 /* 同格三门以上时收窄：只留课名 */
@@ -805,9 +812,8 @@ input, textarea, select { font-family: inherit; }
 /* =========================================================
    首页总览
    ========================================================= */
-.home-hero { margin-bottom: 18px; }
-.home-greet { font-size: 24px; font-weight: 700; font-family: var(--font-head); }
-.home-date { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.home-hero { margin-bottom: 16px; }
+.home-date { color: var(--muted); font-size: 15px; font-weight: 500; }
 
 .home-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
 .stat-card {
@@ -820,9 +826,10 @@ input, textarea, select { font-family: inherit; }
 .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .stat-ic { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; flex: 0 0 auto; }
 .stat-ic svg { width: 20px; height: 20px; }
+.stat-body { min-width: 0; }
 .stat-label { font-size: 12.5px; color: var(--muted); }
 .stat-value { font-size: 22px; font-weight: 700; font-family: var(--font-head); line-height: 1.15; margin-top: 2px; }
-.stat-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.stat-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-card[data-c="blue"] .stat-ic { background: var(--blue-soft); color: var(--blue); }
 .stat-card[data-c="green"] .stat-ic { background: var(--green-soft); color: var(--green); }
 .stat-card[data-c="orange"] .stat-ic { background: var(--orange-soft); color: var(--orange); }

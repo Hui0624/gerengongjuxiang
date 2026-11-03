@@ -1633,8 +1633,6 @@ function renderHome() {
   if (!elStats) return;
 
   const now = new Date();
-  const h = now.getHours();
-  const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
   const day = todayWeekday();
   const wno = todayWeekNo();
   const today = todayStr();
@@ -1653,10 +1651,8 @@ function renderHome() {
   const skills = Store.data.skills;
   const avg = skills.length ? Math.round(skills.reduce((s, k) => s + (k.progress || 0), 0) / skills.length) : 0;
 
-  $("#homeGreet").textContent = `${greet}，小辉`;
   $("#homeDate").textContent =
-    `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${weekdayName(day)}` +
-    (wno ? ` · 第 ${wno} 周` : "");
+    `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${weekdayName(day)}`;
 
   const I = {
     todo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg>`,
