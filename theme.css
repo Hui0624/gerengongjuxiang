@@ -1,0 +1,372 @@
+/* =========================================================
+   theme.css —— 皮肤（简洁白 / 暗夜黑 / 国风 / 照片）
+   用法：<html data-theme="dark|light|ink|photo">
+   照片皮肤额外用 CSS 变量：--skin-image / --skin-dim / --skin-blur
+   ========================================================= */
+
+/* ---------------- 暗夜黑（默认） ---------------- */
+:root,
+:root[data-theme="dark"] {
+  --scheme: dark;
+  --app-bg: radial-gradient(1200px 620px at 82% -12%, #172033 0%, #0e1116 56%);
+  --panel: #151a22;
+  --panel-2: #1b222c;
+  --border: #262e3a;
+  --border-2: #35414f;
+  --hover-bg: #212a37;
+  --text: #e6ebf2;
+  --text-2: #c7d0dc;
+  --muted: #8a95a5;
+
+  --blue: #4f8cff;
+  --orange: #ff9f43;
+  --green: #3ddc97;
+  --red: #ff5c5c;
+  --purple: #a78bfa;
+
+  --blue-line: rgba(79,140,255,.36);
+  --blue-soft: rgba(79,140,255,.14);
+  --green-line: rgba(61,220,151,.3);
+  --green-soft: rgba(61,220,151,.12);
+  --orange-line: rgba(255,159,67,.32);
+  --orange-soft: rgba(255,159,67,.12);
+  --red-line: rgba(255,92,92,.32);
+  --red-soft: rgba(255,92,92,.14);
+
+  --track: #232b37;
+  --track-border: #2c3543;
+  --grid-line: rgba(38,46,58,.75);
+  --grid-line-2: rgba(38,46,58,.45);
+  --topbar-bg: rgba(16,20,27,.85);
+  --nav-bg: rgba(16,20,27,.45);
+  --nav-active-bg: linear-gradient(90deg, rgba(79,140,255,.18), rgba(79,140,255,.04));
+  --overlay: rgba(5,8,12,.68);
+  --shadow: 0 6px 22px rgba(0,0,0,.28);
+  --shadow-lg: 0 18px 50px rgba(0,0,0,.5);
+
+  --hero-bg: linear-gradient(120deg, rgba(79,140,255,.16), rgba(167,139,250,.07) 62%, transparent);
+  --course-bg: linear-gradient(180deg, rgba(79,140,255,.24), rgba(79,140,255,.13));
+  --course-border: rgba(79,140,255,.4);
+  --course-text: #bcd3ff;
+  --todo-bg: linear-gradient(180deg, rgba(255,159,67,.22), rgba(255,159,67,.12));
+  --todo-bg-solid: #2b2116;
+  --todo-border: rgba(255,159,67,.4);
+  --todo-text: #ffd7a8;
+
+  --check-border: #3b4657;
+  --on-accent: #08301f;
+  --accent-grad: linear-gradient(180deg, #5b95ff, #3f7ef0);
+  --accent-line: #4a86f5;
+  --fill-grad: linear-gradient(90deg, #2fbf85, var(--green));
+  --scroll-thumb: #2c3543;
+  --scroll-thumb-hover: #3a4658;
+  --bili: #ff8fab;
+  --bili-line: rgba(255,143,171,.3);
+  --dy: #7ce3ff;
+  --dy-line: rgba(124,227,255,.3);
+  --logo-color: var(--blue);
+  --logo-bg: transparent;
+}
+
+/* ---------------- 简洁白 ---------------- */
+:root[data-theme="light"] {
+  --scheme: light;
+  --app-bg: radial-gradient(1100px 560px at 84% -14%, #e6edfb 0%, #f5f7fb 58%);
+  --panel: #ffffff;
+  --panel-2: #f3f5f9;
+  --border: #e4e9f1;
+  --border-2: #cfd8e6;
+  --hover-bg: #eef2f8;
+  --text: #17202e;
+  --text-2: #414c5d;
+  --muted: #71808f;
+
+  --blue: #2f6df6;
+  --orange: #e07a17;
+  --green: #0f9d63;
+  --red: #e04a4a;
+  --purple: #7c5cf0;
+
+  --blue-line: rgba(47,109,246,.34);
+  --blue-soft: rgba(47,109,246,.1);
+  --green-line: rgba(15,157,99,.28);
+  --green-soft: rgba(15,157,99,.1);
+  --orange-line: rgba(224,122,23,.28);
+  --orange-soft: rgba(224,122,23,.1);
+  --red-line: rgba(224,74,74,.26);
+  --red-soft: rgba(224,74,74,.1);
+
+  --track: #e3e9f2;
+  --track-border: #d3dbe6;
+  --grid-line: #edf0f6;
+  --grid-line-2: #f4f6fa;
+  --topbar-bg: rgba(255,255,255,.86);
+  --nav-bg: rgba(255,255,255,.6);
+  --nav-active-bg: linear-gradient(90deg, rgba(47,109,246,.12), rgba(47,109,246,.02));
+  --overlay: rgba(23,32,46,.32);
+  --shadow: 0 2px 10px rgba(23,32,46,.06);
+  --shadow-lg: 0 18px 44px rgba(23,32,46,.16);
+
+  --hero-bg: linear-gradient(120deg, #eaf1ff, #f3eeff 62%, #ffffff);
+  --course-bg: linear-gradient(180deg, #eaf1ff, #e2ecff);
+  --course-border: #c6d8fb;
+  --course-text: #1b4bc2;
+  --todo-bg: linear-gradient(180deg, #fff4e6, #ffe9cf);
+  --todo-bg-solid: #fff4e6;
+  --todo-border: #fbd5a8;
+  --todo-text: #a35a10;
+
+  --check-border: #c6cfdd;
+  --on-accent: #ffffff;
+  --accent-grad: linear-gradient(180deg, #4b83fb, #2f6df6);
+  --accent-line: #2f6df6;
+  --fill-grad: linear-gradient(90deg, #34c98d, #0f9d63);
+  --scroll-thumb: #d3dae5;
+  --scroll-thumb-hover: #bcc6d4;
+  --bili: #d6366d;
+  --bili-line: rgba(214,54,109,.22);
+  --dy: #0f8fa8;
+  --dy-line: rgba(15,143,168,.22);
+  --logo-color: #2f6df6;
+  --logo-bg: rgba(47,109,246,.1);
+}
+
+/* ---------------- 国风（宣纸水墨） ---------------- */
+:root[data-theme="ink"] {
+  --scheme: light;
+  --font-head: "Songti SC", "STSong", "SimSun", "Noto Serif SC", Georgia, serif;
+  --app-bg:
+    radial-gradient(900px 480px at 88% -8%, #fbf6ea 0%, rgba(251,246,234,0) 60%),
+    repeating-linear-gradient(48deg, rgba(158,138,102,.013) 0 2px, transparent 2px 9px),
+    linear-gradient(158deg, #f5eddd 0%, #ece1cc 100%);
+  --panel: rgba(255,252,244,.88);
+  --panel-2: #f4ebda;
+  --border: #dbcdb4;
+  --border-2: #c7b593;
+  --hover-bg: #f0e5d0;
+  --text: #2b241b;
+  --text-2: #4c4235;
+  --muted: #857966;
+
+  --blue: #3f6076;
+  --orange: #b06a2c;
+  --green: #4a7a52;
+  --red: #b8432f;
+  --purple: #7a6a8f;
+
+  --blue-line: rgba(63,96,118,.34);
+  --blue-soft: rgba(63,96,118,.1);
+  --green-line: rgba(74,122,82,.28);
+  --green-soft: rgba(74,122,82,.1);
+  --orange-line: rgba(176,106,44,.3);
+  --orange-soft: rgba(176,106,44,.1);
+  --red-line: rgba(184,67,47,.28);
+  --red-soft: rgba(184,67,47,.1);
+
+  --track: #e6dac2;
+  --track-border: #d8c9ab;
+  --grid-line: rgba(178,160,128,.42);
+  --grid-line-2: rgba(178,160,128,.24);
+  --topbar-bg: rgba(250,244,232,.9);
+  --nav-bg: rgba(248,241,228,.62);
+  --nav-active-bg: linear-gradient(90deg, rgba(184,67,47,.1), rgba(184,67,47,.02));
+  --overlay: rgba(43,36,28,.42);
+  --shadow: 0 2px 12px rgba(120,100,70,.12);
+  --shadow-lg: 0 18px 44px rgba(90,74,50,.24);
+
+  --hero-bg: linear-gradient(120deg, rgba(63,96,118,.12), rgba(184,67,47,.06) 62%, transparent);
+  --course-bg: linear-gradient(180deg, rgba(63,96,118,.2), rgba(63,96,118,.1));
+  --course-border: rgba(63,96,118,.34);
+  --course-text: #2f4b5e;
+  --todo-bg: linear-gradient(180deg, rgba(176,106,44,.16), rgba(176,106,44,.08));
+  --todo-bg-solid: #f7e7d3;
+  --todo-border: rgba(176,106,44,.32);
+  --todo-text: #8a4f18;
+
+  --check-border: #c3b394;
+  --on-accent: #fdf8ee;
+  --accent-grad: linear-gradient(180deg, #c05a44, #a83c28);
+  --accent-line: #a83c28;
+  --fill-grad: linear-gradient(90deg, #7d9c74, #4a7a52);
+  --scroll-thumb: #d6c7ab;
+  --scroll-thumb-hover: #c3b191;
+  --bili: #a8475f;
+  --bili-line: rgba(168,71,95,.26);
+  --dy: #3f6f78;
+  --dy-line: rgba(63,111,120,.26);
+  --logo-color: #a83c28;
+  --logo-bg: rgba(168,60,40,.09);
+}
+/* 国风细节：印章式 logo、标题字距、纸上留白 */
+:root[data-theme="ink"] .brand { letter-spacing: 2px; font-weight: 600; }
+:root[data-theme="ink"] .brand .logo {
+  border: 1.5px solid var(--red);
+  border-radius: 4px;
+  width: 27px; height: 27px;
+  background: var(--red);
+  color: #fdf6e8;
+}
+:root[data-theme="ink"] .section-head h2 { letter-spacing: 1.5px; }
+:root[data-theme="ink"] .nav-item { letter-spacing: 1px; border-radius: 8px; }
+:root[data-theme="ink"] .nav-item.active::before { width: 2px; height: 15px; }
+:root[data-theme="ink"] .next-card,
+:root[data-theme="ink"] .tl-scroll,
+:root[data-theme="ink"] .todo-item,
+:root[data-theme="ink"] .skill-card,
+:root[data-theme="ink"] .habit-item,
+:root[data-theme="ink"] .modal-box { border-radius: 8px; }
+:root[data-theme="ink"] .tl-block { border-radius: 6px; }
+:root[data-theme="ink"] .btn { border-radius: 6px; }
+:root[data-theme="ink"] .modal-box { background: #fffdf6; }
+:root[data-theme="ink"] .modal-head { background: #fffdf6; }
+:root[data-theme="ink"] .modal-box,
+:root[data-theme="ink"] .topbar { backdrop-filter: blur(12px) saturate(1.05); }
+
+/* ---------------- 照片皮肤（玻璃卡片） ---------------- */
+:root[data-theme="photo"] {
+  --scheme: dark;
+  --app-bg: transparent;
+  --panel: rgba(15,20,28,.74);
+  --panel-2: rgba(30,38,50,.66);
+  --border: rgba(255,255,255,.14);
+  --border-2: rgba(255,255,255,.26);
+  --hover-bg: rgba(255,255,255,.1);
+  --text: #f4f8fd;
+  --text-2: #d3dde9;
+  --muted: #a9b7c8;
+
+  --blue: #7aabff;
+  --orange: #ffb066;
+  --green: #4fe0a6;
+  --red: #ff7070;
+  --purple: #bda6ff;
+
+  --blue-line: rgba(122,171,255,.42);
+  --blue-soft: rgba(122,171,255,.16);
+  --green-line: rgba(79,224,166,.34);
+  --green-soft: rgba(79,224,166,.14);
+  --orange-line: rgba(255,176,102,.36);
+  --orange-soft: rgba(255,176,102,.14);
+  --red-line: rgba(255,112,112,.34);
+  --red-soft: rgba(255,112,112,.16);
+
+  --track: rgba(255,255,255,.16);
+  --track-border: rgba(255,255,255,.18);
+  --grid-line: rgba(255,255,255,.13);
+  --grid-line-2: rgba(255,255,255,.07);
+  --topbar-bg: rgba(12,16,22,.55);
+  --nav-bg: rgba(12,16,22,.32);
+  --nav-active-bg: linear-gradient(90deg, rgba(122,171,255,.24), rgba(122,171,255,.06));
+  --overlay: rgba(6,9,14,.55);
+  --shadow: 0 6px 24px rgba(0,0,0,.3);
+  --shadow-lg: 0 18px 50px rgba(0,0,0,.55);
+
+  --hero-bg: linear-gradient(120deg, rgba(122,171,255,.24), rgba(189,166,255,.12) 62%, rgba(255,255,255,.04));
+  --course-bg: linear-gradient(180deg, rgba(122,171,255,.3), rgba(122,171,255,.16));
+  --course-border: rgba(122,171,255,.42);
+  --course-text: #dce9ff;
+  --todo-bg: linear-gradient(180deg, rgba(255,176,102,.28), rgba(255,176,102,.14));
+  --todo-bg-solid: rgba(48,35,22,.85);
+  --todo-border: rgba(255,176,102,.4);
+  --todo-text: #ffe3c2;
+
+  --check-border: rgba(255,255,255,.4);
+  --on-accent: #07281b;
+  --accent-grad: linear-gradient(180deg, #6fa5ff, #4f8cff);
+  --accent-line: rgba(255,255,255,.2);
+  --fill-grad: linear-gradient(90deg, #3fd39b, #6ff0c0);
+  --scroll-thumb: rgba(255,255,255,.24);
+  --scroll-thumb-hover: rgba(255,255,255,.4);
+  --bili: #ffa8c4;
+  --bili-line: rgba(255,168,196,.32);
+  --dy: #9beaff;
+  --dy-line: rgba(155,234,255,.32);
+  --logo-color: #cfe1ff;
+  --logo-bg: rgba(255,255,255,.12);
+}
+
+/* 照片层：html::before 放图（可模糊），html::after 压暗 */
+:root[data-theme="photo"] { background: #0b0e13; }
+:root[data-theme="photo"] body { background: transparent; }
+
+:root[data-theme="photo"]::before {
+  content: "";
+  position: fixed; inset: 0; z-index: -2;
+  background-image: var(--skin-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(var(--skin-blur, 0px)) saturate(1.06);
+  transform: scale(1.06);
+  transition: filter .2s ease;
+}
+:root[data-theme="photo"]::after {
+  content: "";
+  position: fixed; inset: 0; z-index: -1;
+  background: rgba(6,9,14, var(--skin-dim, .42));
+  transition: background .2s ease;
+}
+
+/* 玻璃卡片 */
+:root[data-theme="photo"] .topbar,
+:root[data-theme="photo"] .sidenav,
+:root[data-theme="photo"] .tl-scroll,
+:root[data-theme="photo"] .next-card,
+:root[data-theme="photo"] .todo-item,
+:root[data-theme="photo"] .skill-card,
+:root[data-theme="photo"] .habit-item,
+:root[data-theme="photo"] .modal-box {
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+}
+:root[data-theme="photo"] .input,
+:root[data-theme="photo"] .method { backdrop-filter: blur(8px); }
+:root[data-theme="photo"] .brand { text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+
+/* 内容区顶部加一层渐隐遮罩，保证标题、Hero 卡片在亮照片上也清楚 */
+:root[data-theme="photo"] .content {
+  background:
+    linear-gradient(180deg, rgba(8,12,18,.55) 0, rgba(8,12,18,.22) 170px, rgba(8,12,18,0) 320px);
+}
+:root[data-theme="photo"] .section-head h2,
+:root[data-theme="photo"] .hint,
+:root[data-theme="photo"] .next-card .nc-main,
+:root[data-theme="photo"] .next-card .nc-time,
+:root[data-theme="photo"] .today-label { text-shadow: 0 1px 6px rgba(0,0,0,.55); }
+
+/* 大图模式：内容区不用毛玻璃的部分保持通透 */
+:root[data-theme="photo"] .modal-head { background: rgba(17,22,30,.72); }
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* =========================================================
+   周课表配色（按课程名散列出色相，明度/饱和度跟随皮肤）
+   ========================================================= */
+:root,
+:root[data-theme="dark"] {
+  --wk-s: 40%;
+  --wk-l: 25%;
+  --wk-border-l: 34%;
+  --wk-text: #eaf0f8;
+}
+:root[data-theme="light"] {
+  --wk-s: 62%;
+  --wk-l: 93%;
+  --wk-border-l: 80%;
+  --wk-text: #182130;
+}
+:root[data-theme="ink"] {
+  --wk-s: 34%;
+  --wk-l: 91%;
+  --wk-border-l: 78%;
+  --wk-text: #3a3128;
+}
+:root[data-theme="photo"] {
+  --wk-s: 42%;
+  --wk-l: 28%;
+  --wk-border-l: 38%;
+  --wk-text: #f2f6fc;
+}
