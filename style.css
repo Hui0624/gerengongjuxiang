@@ -528,6 +528,9 @@ input, textarea, select { font-family: inherit; }
   .topbar-actions .btn { padding: 7px 8px; }
   .section-head h2 { font-size: 16px; }
   .seg-btn { padding: 6px 12px; font-size: 12.5px; }
+  .nav-item { font-size: 10px; padding: 7px 1px; gap: 2px; }
+  .topbar-actions .btn.ghost span { display: none; }
+  .topbar-actions .btn.ghost svg { width: 17px; height: 17px; }
 }
 
 /* 滚动条 */
@@ -779,13 +782,18 @@ input, textarea, select { font-family: inherit; }
   .wk-chip .wc-name { font-size: 10.5px; }
   .wk-chip .wc-meta { font-size: 9.5px; }
 
-  /* 首页：手机上两列改单列、统计卡两列 */
-  .home-stats { grid-template-columns: repeat(2, 1fr); }
-  .home-cols { grid-template-columns: 1fr; }
+  /* 首页：手机上卡片单列、统计卡自适应两列；用 auto-fit 防止任何宽度下溢出 */
+  .home-stats { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; }
+  .home-cols { grid-template-columns: 1fr; gap: 12px; }
+  .stat-card { min-width: 0; padding: 13px; gap: 10px; }
+  .stat-ic { width: 40px; height: 40px; border-radius: 11px; }
+  .stat-ic svg { width: 20px; height: 20px; }
   .stat-value { font-size: 19px; }
-  .sidenav { width: 64px; }
-  .sidenav .nav-item span:last-child { display: none; }
-  .sidenav .nav-item { justify-content: center; }
+  .home-hero { margin-bottom: 14px; }
+  .home-greet { font-size: 21px; }
+  .home-box { padding: 8px 13px; }
+  .section-head { margin: 4px 0 11px; }
+  .section-head h2 { font-size: 16px; }
 }
 
 /* 同格三门以上时收窄：只留课名 */
