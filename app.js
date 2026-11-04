@@ -777,7 +777,7 @@ function renderCountdown() {
   // 进入倒计时页时，若日期框为空则默认填今天，降低「加不进去」的摩擦
   const dateEl = $("#cdDate");
   if (dateEl && !dateEl.value) dateEl.value = todayStr();
-  const cds = [...Store.data.countdowns].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+  const cds = [...(Store.data.countdowns || [])].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
   const hint = $("#cdHint");
   if (hint) hint.textContent = cds.length ? `共 ${cds.length} 个` : "";
   if (!cds.length) {
@@ -1561,17 +1561,28 @@ function updateSyncBadge() {
   }
 }
 
+/* 把任意来源（云端 / 导入文件）的数据规范化：
+   所有字段必为数组，缺失字段回退到本机现有数据，
+   避免「xxx is not iterable」类崩溃，并修复倒计时不同步 */
+function normalizeData(obj) {
+  obj = obj || {};
+  const cur = (Store.data && typeof Store.data === "object") ? Store.data : null;
+  const arr = (v, fb) => Array.isArray(v) ? v : (Array.isArray(fb) ? fb : []);
+  return {
+    version: 2,
+    updatedAt: obj.updatedAt || (cur && cur.updatedAt) || Date.now(),
+    settings: Object.assign({ termStart: "" }, (cur && cur.settings) || {}, obj.settings || {}),
+    courses: arr(obj.courses, cur && cur.courses),
+    todos: arr(obj.todos, cur && cur.todos),
+    skills: arr(obj.skills, cur && cur.skills),
+    habits: arr(obj.habits, cur && cur.habits),
+    countdowns: arr(obj.countdowns, cur && cur.countdowns)
+  };
+}
+
 function applyRemoteData(obj) {
   if (!obj || !Array.isArray(obj.courses)) throw new Error("云端数据格式不对");
-  Store.data = {
-    version: 2,
-    updatedAt: obj.updatedAt || Date.now(),
-    settings: Object.assign({ termStart: "" }, obj.settings || (Store.data && Store.data.settings) || {}),
-    courses: obj.courses || [],
-    todos: obj.todos || [],
-    skills: obj.skills || [],
-    habits: obj.habits || []
-  };
+  Store.data = normalizeData(obj);
   // 直接落盘，避免触发自动推送造成回环
   try { localStorage.setItem(WB_KEY, JSON.stringify(Store.data)); } catch (e) {}
   renderAll();
@@ -1818,14 +1829,7 @@ function importJSON(file) {
         alert("文件格式不对，需要包含 courses 数组");
         return;
       }
-      Store.data = {
-        version: 2,
-        settings: Object.assign({ termStart: "" }, obj.settings || Store.data.settings || {}),
-        courses: obj.courses || [],
-        todos: obj.todos || [],
-        skills: obj.skills || [],
-        habits: obj.habits || []
-      };
+      Store.data = normalizeData(obj);
       Store.save();
       renderAll();
       closeModal();
@@ -1978,7 +1982,7 @@ function renderHome() {
   // 最近倒计时
   const elCD = $("#homeCountdown");
   if (elCD) {
-    const cds = [...Store.data.countdowns].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+    const cds = [...(Store.data.countdowns || [])].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
     const cdHint = $("#homeCountHint");
     if (cdHint) cdHint.textContent = cds.length ? `共 ${cds.length} 个` : "";
     if (!cds.length) elCD.innerHTML = `<div class="empty-hint">还没有倒计时</div>`;

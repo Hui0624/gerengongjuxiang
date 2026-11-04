@@ -676,6 +676,10 @@ const MIME = {
 
 function serveStatic(pathname, res) {
   let rel = decodeURIComponent(pathname);
+  /* 兼容 GitHub Pages 子路径部署：本地也支持 /gerengongjuxiang/ 前缀 */
+  const PREFIX = "/gerengongjuxiang";
+  if (rel === PREFIX || rel === PREFIX + "/") rel = "/";
+  if (rel.startsWith(PREFIX + "/")) rel = rel.slice(PREFIX.length);
   if (rel === "/") rel = "/index.html";
   const file = path.join(ROOT, rel);
   if (!file.startsWith(ROOT)) {
