@@ -1,0 +1,40 @@
+{
+  "name": "我的工作台",
+  "short_name": "工作台",
+  "description": "个人效率工作台：待办四象限、课表时间线、打卡、技能进度与倒计时，支持离线使用与本地提醒。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#eef6f2",
+  "theme_color": "#14a06a",
+  "categories": ["productivity", "education", "lifestyle"],
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "今日待办",
+      "short_name": "待办",
+      "description": "查看今天的待办清单",
+      "url": "./?view=todo&source=pwa"
+    },
+    {
+      "name": "时间线",
+      "short_name": "时间线",
+      "description": "今日课程与待办时间线",
+      "url": "./?view=timeline&source=pwa"
+    },
+    {
+      "name": "倒计时",
+      "short_name": "倒计时",
+      "description": "考研、考试等重要日子",
+      "url": "./?view=countdown&source=pwa"
+    }
+  ]
+}

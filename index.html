@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0e1116" />
+  <meta name="theme-color" content="#14a06a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="工作台" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="我的工作台" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="assets/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
   <title>我的工作台</title>
   <!-- 皮肤在样式前应用，避免刷新闪一下 -->
   <script>
@@ -109,6 +117,7 @@
         <div class="home-hero">
           <div class="home-date" id="homeDate"></div>
         </div>
+        <div class="action-hero" id="homeAction"></div>
         <div class="home-stats" id="homeStats"></div>
         <div class="home-cols">
           <div class="home-col">
@@ -228,7 +237,7 @@
         <div class="add-row">
           <input id="cdName" class="input" placeholder="名称，如：期末考试" />
           <input id="cdDate" class="input date-input" type="date" />
-          <button id="cdAdd" class="btn primary">＋ 添加倒计时</button>
+          <button id="cdAdd" class="btn primary" type="button">＋ 添加倒计时</button>
         </div>
       </section>
     </main>
@@ -240,6 +249,29 @@
       <div class="modal-head"><h3 id="modalTitle">标题</h3><button id="modalClose" class="icon-btn">✕</button></div>
       <div id="modalBody" class="modal-body"></div>
     </div>
+  </div>
+
+  <!-- PWA：安装引导条 -->
+  <div id="installBar" class="install-bar hidden">
+    <div class="ib-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/>
+      </svg>
+    </div>
+    <div class="ib-text">
+      <div class="ib-title">添加到主屏幕</div>
+      <div class="ib-sub" id="installSub">像 App 一样随时打开，离线也能用</div>
+    </div>
+    <button id="installBtn" class="ib-btn">添加</button>
+    <button id="installClose" class="ib-close" title="不再提示">✕</button>
+  </div>
+
+  <!-- PWA：离线 / 更新 提示 -->
+  <div id="offlineToast" class="toast hidden">📡 当前离线，数据已保存在本机</div>
+  <div id="updateToast" class="toast toast-update hidden">
+    <span>✨ 已更新到新版本</span>
+    <button id="updateBtn" class="toast-btn">刷新</button>
+    <button id="updateClose" class="toast-x" title="稍后">✕</button>
   </div>
 
   <script src="data.js"></script>

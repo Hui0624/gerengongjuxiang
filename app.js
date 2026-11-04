@@ -774,6 +774,9 @@ function deleteTodo(id) {
 function renderCountdown() {
   const list = $("#countdownList");
   if (!list) return;
+  // 进入倒计时页时，若日期框为空则默认填今天，降低「加不进去」的摩擦
+  const dateEl = $("#cdDate");
+  if (dateEl && !dateEl.value) dateEl.value = todayStr();
   const cds = [...Store.data.countdowns].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
   const hint = $("#cdHint");
   if (hint) hint.textContent = cds.length ? `共 ${cds.length} 个` : "";
@@ -796,14 +799,28 @@ function renderCountdown() {
 }
 
 function addCountdown() {
-  const name = $("#cdName").value.trim();
-  const date = $("#cdDate").value;
-  if (!name || !date) { alert("请填写名称和日期"); return; }
-  Store.data.countdowns.push({ id: uid(), name, date });
-  Store.save();
-  $("#cdName").value = "";
-  $("#cdDate").value = "";
-  renderCountdown(); renderHome();
+  const nameEl = $("#cdName");
+  const dateEl = $("#cdDate");
+  const name = (nameEl.value || "").trim();
+  // 日期没填就默认用今天，避免「必须填两项才能加」带来的「加不进去」错觉
+  const date = dateEl.value || todayStr();
+  if (!name) {
+    nameEl.focus();
+    const row = nameEl.closest(".add-row");
+    if (row) { row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake"); }
+    return;
+  }
+  try {
+    if (!Array.isArray(Store.data.countdowns)) Store.data.countdowns = [];
+    Store.data.countdowns.push({ id: uid(), name, date });
+    // 先渲染，再保存；保存（含云同步）即使失败也不影响界面更新
+    renderCountdown(); renderHome();
+    try { Store.save(); } catch (e) { console.warn("[addCountdown] save 失败:", e); }
+  } catch (e) {
+    console.warn("[addCountdown] 添加失败:", e);
+  }
+  nameEl.value = "";
+  dateEl.value = "";
 }
 
 function deleteCountdown(id) {
@@ -1567,6 +1584,13 @@ function openSettings() {
     <p>简洁白、暗夜黑、国风宣纸，也可以拿自己的照片当背景。</p>
     <div class="modal-actions"><button class="btn" id="themeOpen">换个皮肤</button></div>
 
+    <h4>本地提醒</h4>
+    <p>开启后，待办到点会弹系统通知；每天晨间给你一份今日重点（下节课 + 最重要待办 + 临近的倒计时）。需要先授权系统通知权限。</p>
+    <label class="switch-row"><input type="checkbox" id="notifyOn" ${Notify.on ? "checked" : ""}> 开启本地提醒</label>
+    <div class="field"><label>每日晨间提醒时间</label>
+      <input class="input" id="notifyMorning" type="time" value="${esc(Notify.morning)}"></div>
+    <div id="notifyMsg" class="sync-msg"></div>
+
     <h4>云同步（GitHub 私有 Gist，免费）</h4>
     <p>填一个 GitHub Token（勾选 gist 权限即可），电脑和手机就能共用同一份数据。<strong>Token 只存在本机浏览器。</strong></p>
     <div class="field"><label>GitHub Token</label>
@@ -1596,6 +1620,33 @@ function openSettings() {
     const msg = $("#ghMsg", body);
 
     $("#themeOpen", body).addEventListener("click", openThemeModal);
+
+    /* 本地提醒开关 */
+    const nMsg = $("#notifyMsg", body);
+    const notifyOn = $("#notifyOn", body);
+    const notifyMorning = $("#notifyMorning", body);
+    notifyMorning.disabled = !Notify.on;
+    notifyOn.addEventListener("change", () => {
+      const on = notifyOn.checked;
+      Notify.on = on;
+      notifyMorning.disabled = !on;
+      if (on) {
+        if (Notify.permitted) {
+          nMsg.textContent = "提醒已开启，到点会弹通知";
+          nMsg.className = "sync-msg ok";
+        } else {
+          requestNotifyPermission(nMsg);
+        }
+      } else {
+        nMsg.textContent = "";
+        nMsg.className = "sync-msg";
+      }
+    });
+    notifyMorning.addEventListener("change", () => {
+      Notify.morning = notifyMorning.value;
+      nMsg.textContent = "已保存，每天 " + notifyMorning.value + " 起推送晨间提醒";
+      nMsg.className = "sync-msg ok";
+    });
 
     const readInputs = () => {
       SyncCfg.token = $("#ghToken", body).value.trim();
@@ -1769,6 +1820,49 @@ function renderHome() {
   $("#homeDate").textContent =
     `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${weekdayName(day)}`;
 
+  // 行动中枢：下节课倒计时 / 今天课程结束后推最重要待办
+  const elAction = $("#homeAction");
+  if (elAction) {
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nextC = courses.find(c => hhmmToMin(c.start) > nowMin);
+    const startedC = courses.filter(c => hhmmToMin(c.start) <= nowMin).length;
+    const frac = courses.length ? startedC / courses.length : 0;
+    const R = 26, C = 2 * Math.PI * R, off = C * (1 - frac);
+    if (nextC) {
+      const mins = hhmmToMin(nextC.start) - nowMin;
+      elAction.innerHTML = `
+        <div class="ah-ring">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="${R}" class="ah-track"/>
+            <circle cx="32" cy="32" r="${R}" class="ah-fill" style="stroke-dasharray:${C};stroke-dashoffset:${off}"/>
+            <text x="32" y="30" class="ah-num">${mins}</text>
+            <text x="32" y="42" class="ah-unit">分钟</text>
+          </svg>
+        </div>
+        <div class="ah-body">
+          <div class="ah-label">下节课</div>
+          <div class="ah-name">${esc(nextC.name)}</div>
+          <div class="ah-meta">${esc(nextC.start)}–${esc(nextC.end)}${nextC.room ? " · " + esc(nextC.room) : ""} · 今天第 ${startedC + 1}/${courses.length} 节</div>
+        </div>`;
+    } else {
+      const top = Store.data.todos
+        .filter(t => t.date === today && !t.done)
+        .sort((a, b) => (a.quad || 2) - (b.quad || 2) || (a.time ? hhmmToMin(a.time) : 9999) - (b.time ? hhmmToMin(b.time) : 9999))[0];
+      elAction.innerHTML = `
+        <div class="ah-ring done">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="${R}" class="ah-track"/>
+            <circle cx="32" cy="32" r="${R}" class="ah-fill" style="stroke-dasharray:${C};stroke-dashoffset:0"/>
+            <text x="32" y="39" class="ah-check">✓</text>
+          </svg>
+        </div>
+        <div class="ah-body">
+          <div class="ah-label">今日课程已结束</div>
+          ${top ? `<div class="ah-name">现在专注：${esc(top.text)}</div><div class="ah-meta">${quadOf(top).name}${top.time ? " · " + esc(top.time) : ""}</div>` : `<div class="ah-name">今天没有更多安排了 🌿</div><div class="ah-meta">休息一下，或看看技能进度</div>`}
+        </div>`;
+    }
+  }
+
   const I = {
     todo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg>`,
     course: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.4"/><path d="M8 3.2v3.4M16 3.2v3.4M3.5 10h17"/><path d="M8 14h3.5M8 17.2h6"/></svg>`,
@@ -1895,6 +1989,223 @@ function renderAll(scrollToNow = true) {
   updateSyncBadge();
 }
 
+/* =========================================================
+   PWA + 本地提醒
+   - Service Worker 注册 / 安装引导 / 离线提示 / 版本更新
+   - 待办到点通知 + 每日晨间重点（下节课 / 重点待办 / 临近倒计时）
+   ========================================================= */
+const Notify = {
+  KEY_ON: "wb_notify_on",
+  KEY_MORNING: "wb_notify_morning",
+  KEY_LAST_MORNING: "wb_notify_last_morning",
+  KEY_TODO: "wb_notif_todo_",
+  KEY_DISMISS: "wb_install_dismissed",
+  get on() { return localStorage.getItem(this.KEY_ON) === "1"; },
+  set on(v) { localStorage.setItem(this.KEY_ON, v ? "1" : "0"); },
+  get morning() { return localStorage.getItem(this.KEY_MORNING) || "08:00"; },
+  set morning(v) { localStorage.setItem(this.KEY_MORNING, v || "08:00"); },
+  get permitted() { return ("Notification" in window) && Notification.permission === "granted"; },
+  lastMorning() { return localStorage.getItem(this.KEY_LAST_MORNING) || ""; },
+  markMorning() { localStorage.setItem(this.KEY_LAST_MORNING, todayStr()); }
+};
+
+function requestNotifyPermission(msgEl) {
+  if (!("Notification" in window)) {
+    if (msgEl) { msgEl.textContent = "当前浏览器不支持系统通知"; msgEl.className = "sync-msg err"; }
+    return;
+  }
+  if (Notification.permission === "granted") {
+    if (msgEl) { msgEl.textContent = "已授权，提醒已开启"; msgEl.className = "sync-msg ok"; }
+    return;
+  }
+  try {
+    Notification.requestPermission().then(p => {
+      if (p === "granted") {
+        if (msgEl) { msgEl.textContent = "已授权，提醒已开启"; msgEl.className = "sync-msg ok"; }
+        checkNotify();
+      } else {
+        Notify.on = false;
+        const nb = $("#notifyOn"); if (nb) nb.checked = false;
+        const nm = $("#notifyMorning"); if (nm) nm.disabled = true;
+        if (msgEl) { msgEl.textContent = "未授权，提醒不会弹出（可在浏览器设置里开启）"; msgEl.className = "sync-msg err"; }
+      }
+    }).catch(() => {});
+  } catch (e) {
+    /* 老版本回调式 API 兜底 */
+    Notification.requestPermission(() => {});
+  }
+}
+
+/* 统一通知入口：优先用 SW（可点击回到应用），失败回退到页面内 Notification */
+async function notify(title, body, tag) {
+  if (!Notify.permitted) return;
+  const opts = {
+    body,
+    icon: "assets/icon-192.png",
+    badge: "assets/icon-192.png",
+    tag: tag || undefined,
+    renotify: !!tag
+  };
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, opts);
+      return;
+    }
+  } catch (e) { /* 落到下方兜底 */ }
+  try { new Notification(title, opts); } catch (e) { /* 彻底不支持就静默 */ }
+}
+
+/* 待办到点提醒（每 30s 检查一次，当天只提醒一遍） */
+function checkTodoReminders() {
+  if (!Notify.on || !Notify.permitted) return;
+  const today = todayStr();
+  const now = nowMinutes();
+  (Store.data.todos || []).forEach(t => {
+    if (t.done || t.date !== today || !t.time) return;
+    const tm = hhmmToMin(t.time);
+    if (tm <= 0) return;
+    if (Math.abs(now - tm) <= 1) {
+      const key = Notify.KEY_TODO + t.id + "_" + today;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+      notify("⏰ 待办提醒", (t.text || "有一项待办") + "（" + t.time + "）", "todo-" + t.id);
+    }
+  });
+}
+
+/* 每日晨间重点：仅当天首次、且过了设定时间后发送 */
+function morningDigest() {
+  if (!Notify.on || !Notify.permitted) return;
+  const today = todayStr();
+  if (Notify.lastMorning() === today) return;
+  if (nowMinutes() < hhmmToMin(Notify.morning)) return;
+  Notify.markMorning();
+
+  const day = todayWeekday();
+  const now = nowMinutes();
+  const next = (Store.data.courses || [])
+    .filter(c => c.day === day && hhmmToMin(c.start) >= now)
+    .sort((a, b) => hhmmToMin(a.start) - hhmmToMin(b.start))[0];
+  const top = (Store.data.todos || [])
+    .filter(t => t.date === today && !t.done)
+    .sort((a, b) => (a.quad || 9) - (b.quad || 9))[0];
+  const cd = (Store.data.countdowns || [])
+    .map(c => ({ c, d: daysLeft(c.date) }))
+    .filter(x => x.d >= 0 && [7, 3, 1, 0].includes(x.d))
+    .sort((a, b) => a.d - b.d)[0];
+
+  const lines = [];
+  if (next) lines.push("下节课：" + next.name + " " + next.start + (next.room ? (" @" + next.room) : ""));
+  if (top) lines.push("重点待办：" + top.text);
+  if (cd) lines.push("📅 " + cd.c.name + " 还有 " + cd.d + " 天");
+  if (!lines.length) lines.push("今天没有安排，好好休息或提前准备～");
+  notify("🌅 今日重点", lines.join("\n"), "morning-" + today);
+}
+
+function checkNotify() {
+  checkTodoReminders();
+  morningDigest();
+}
+
+/* ---------------- PWA 安装引导 / SW / 离线 / 更新 ---------------- */
+let deferredPrompt = null;
+let swReg = null;
+
+function isStandalone() {
+  return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+         window.navigator.standalone === true;
+}
+
+function showInstallBar(ios) {
+  const bar = $("#installBar");
+  if (!bar || isStandalone()) return;
+  if (localStorage.getItem(Notify.KEY_DISMISS) === "1") return;
+  const sub = $("#installSub");
+  if (sub) sub.textContent = ios
+    ? "iPhone：点 Safari 底部「分享」→「添加到主屏幕」"
+    : "像 App 一样随时打开，离线也能用";
+  bar.classList.remove("hidden");
+}
+function hideInstallBar() {
+  const b = $("#installBar");
+  if (b) b.classList.add("hidden");
+}
+
+function showUpdateToast() {
+  const t = $("#updateToast");
+  if (!t) return;
+  t.classList.remove("hidden");
+  const btn = $("#updateBtn"), x = $("#updateClose");
+  if (btn) btn.onclick = () => {
+    if (swReg && swReg.waiting) swReg.waiting.postMessage("SKIP_WAITING");
+    else location.reload();
+  };
+  if (x) x.onclick = () => t.classList.add("hidden");
+}
+
+function setupPWA() {
+  /* 1) Service Worker */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").then(reg => {
+      swReg = reg;
+      if (reg.waiting) showUpdateToast();
+      reg.addEventListener("updatefound", () => {
+        const installing = reg.installing;
+        if (installing) installing.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller) showUpdateToast();
+        });
+      });
+    }).catch(() => {});
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+  }
+
+  /* 2) 安装引导（Android / 桌面 Chrome） */
+  const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) && !window.MSStream;
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBar(false);
+  });
+  window.addEventListener("appinstalled", () => {
+    hideInstallBar();
+    localStorage.setItem(Notify.KEY_DISMISS, "1");
+  });
+  const ib = $("#installBtn"), ic = $("#installClose");
+  if (ib) ib.addEventListener("click", async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try { await deferredPrompt.userChoice; } catch (e) {}
+      deferredPrompt = null;
+    }
+    hideInstallBar();
+    localStorage.setItem(Notify.KEY_DISMISS, "1");
+  });
+  if (ic) ic.addEventListener("click", () => {
+    hideInstallBar();
+    localStorage.setItem(Notify.KEY_DISMISS, "1");
+  });
+  /* iOS 没有 beforeinstallprompt，用引导式提示 */
+  if (isIOS && !isStandalone()) setTimeout(() => showInstallBar(true), 2500);
+
+  /* 3) 离线 / 在线提示 */
+  const off = $("#offlineToast");
+  function updateOnline() {
+    if (!off) return;
+    if (navigator.onLine) off.classList.add("hidden");
+    else off.classList.remove("hidden");
+  }
+  window.addEventListener("online", updateOnline);
+  window.addEventListener("offline", updateOnline);
+  updateOnline();
+}
+
 function init() {
   Store.load();
 
@@ -2017,12 +2328,13 @@ function init() {
   $("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
-  /* 每 30 秒刷新时间线（不打断滚动）与顶栏 */
+  /* 每 30 秒刷新时间线（不打断滚动）与顶栏，并检查本地提醒 */
   setInterval(() => {
     if (tlMode === "week") renderWeek();
     else renderTimeline(false);
     renderNextCard();
     renderTopbar();
+    checkNotify();
   }, 30000);
 
   /* 自动同步拉取：启动时拉一次 + 每 20 秒轮询 + 切回前台立即拉 */
@@ -2037,6 +2349,11 @@ function init() {
   if (openParam === "settings") setTimeout(openSettings, 300);
   if (openParam === "import") setTimeout(openImportModal, 300);
   if (openParam === "theme") setTimeout(openThemeModal, 300);
+
+  /* PWA：注册 Service Worker、安装引导、离线/更新提示 */
+  setupPWA();
+  /* 启动即检查一次本地提醒（晨间重点 / 已过点的待办） */
+  checkNotify();
 }
 
 document.addEventListener("DOMContentLoaded", init);
