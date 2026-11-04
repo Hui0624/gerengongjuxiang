@@ -1584,6 +1584,10 @@ function openSettings() {
     <p>简洁白、暗夜黑、国风宣纸，也可以拿自己的照片当背景。</p>
     <div class="modal-actions"><button class="btn" id="themeOpen">换个皮肤</button></div>
 
+    <h4>安装到手机</h4>
+    <p>把工作台装到主屏，像 App 一样随时打开，离线也能用。装法因手机而异，点下面看你的手机怎么装。</p>
+    <div class="modal-actions"><button class="btn primary" id="installGuideBtn">查看安装方法</button></div>
+
     <h4>本地提醒</h4>
     <p>开启后，待办到点会弹系统通知；每天晨间给你一份今日重点（下节课 + 最重要待办 + 临近的倒计时）。需要先授权系统通知权限。</p>
     <label class="switch-row"><input type="checkbox" id="notifyOn" ${Notify.on ? "checked" : ""}> 开启本地提醒</label>
@@ -1620,6 +1624,8 @@ function openSettings() {
     const msg = $("#ghMsg", body);
 
     $("#themeOpen", body).addEventListener("click", openThemeModal);
+    const ig = $("#installGuideBtn", body);
+    if (ig) ig.addEventListener("click", openInstallGuide);
 
     /* 本地提醒开关 */
     const nMsg = $("#notifyMsg", body);
@@ -1693,6 +1699,47 @@ function openSettings() {
       }
     });
   });
+}
+
+/* 安装到手机：按平台给出手动步骤（覆盖微信 / iOS / 安卓 / 桌面） */
+function openInstallGuide() {
+  const ua = navigator.userAgent;
+  const isIOS = /iP(hone|od|ad)/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+  const inWeChat = /MicroMessenger/i.test(ua);
+  let title = "安装到手机";
+  let steps;
+  if (inWeChat) {
+    steps = [
+      "你现在是在微信里打开的，微信内置浏览器不支持直接安装。",
+      "点右上角的「⋯」→ 选「在浏览器打开」（或「默认浏览器」）。",
+      "在系统浏览器（Safari / Chrome）打开后，再按下面对应手机的方法添加。"
+    ];
+  } else if (isIOS) {
+    steps = [
+      "用 iPhone 的 Safari 打开这个页面（不要用微信内置浏览器）。",
+      "点底部中间的「分享」按钮（一个方框带向上箭头）。",
+      "向上滑动，找到并点「添加到主屏幕」。",
+      "可改个名字，点右上角「添加」就完成了，桌面会出现工作台图标。"
+    ];
+  } else if (isAndroid) {
+    steps = [
+      "用手机 Chrome 打开这个页面。",
+      "点右上角「⋮」菜单 → 选「安装应用」或「添加到主屏幕」。",
+      "也可以等页面顶部弹出「安装工作台」的横条，直接点「安装」。",
+      "装好后桌面出现图标，离线也能打开，和 App 一样。"
+    ];
+  } else {
+    steps = [
+      "用电脑 Chrome / Edge 打开这个页面。",
+      "地址栏右侧会出现「安装」图标（⊕ 或电脑形状），点它。",
+      "或在浏览器菜单里选「安装工作台 / 将此站点作为应用安装」。",
+      "装好后它会像独立 App 一样运行，不在浏览器标签里。"
+    ];
+  }
+  const html = '<ol class="install-steps">' + steps.map(s => "<li>" + esc(s) + "</li>").join("") + "</ol>" +
+    (inWeChat ? '<p class="sync-msg">小提示：用手机自带浏览器打开后再装，体验最好。</p>' : "");
+  openModal(title, html);
 }
 
 /* ---------- 自动同步 ----------
@@ -2149,6 +2196,8 @@ function setupPWA() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").then(reg => {
       swReg = reg;
+      try { if (reg.update) reg.update(); } catch (e) {}
+      setInterval(() => { try { if (swReg && swReg.update) swReg.update(); } catch (e) {} }, 60000);
       if (reg.waiting) showUpdateToast();
       reg.addEventListener("updatefound", () => {
         const installing = reg.installing;
