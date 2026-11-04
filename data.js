@@ -65,11 +65,14 @@ const DEFAULT_DATA = {
     { id: "c16", name: "单片机原理", day: 5, start: "14:00", end: "15:40", room: "实验楼 A310" }
   ],
   todos: [
-    { id: "t1", text: "复习英语单词 20 分钟", time: "16:00", date: todayStr(), done: false },
-    { id: "t2", text: "嵌入式：跑通 I2C 编码器读取", time: "19:00", date: todayStr(), done: false },
-    { id: "t3", text: "健身：俯卧撑三组 + 深蹲", time: "21:00", date: todayStr(), done: false },
-    { id: "t4", text: "交英语作业", time: "", date: todayStr(), done: false },
-    { id: "t5", text: "整理竞赛材料", time: "", date: todayStr(), done: false }
+    { id: "t1", text: "复习英语单词 20 分钟", time: "16:00", date: todayStr(), quad: 2, done: false },
+    { id: "t2", text: "嵌入式：跑通 I2C 编码器读取", time: "19:00", date: todayStr(), quad: 1, done: false },
+    { id: "t3", text: "健身：俯卧撑三组 + 深蹲", time: "21:00", date: todayStr(), quad: 4, done: false },
+    { id: "t4", text: "交英语作业", time: "", date: todayStr(), quad: 1, done: false },
+    { id: "t5", text: "整理竞赛材料", time: "", date: todayStr(), quad: 2, done: false }
+  ],
+  countdowns: [
+    { id: "cd1", name: "考研初试", date: "2026-12-20" }
   ],
   skills: [
     {
@@ -126,7 +129,8 @@ const Store = {
       courses: parsed && Array.isArray(parsed.courses) ? parsed.courses : JSON.parse(JSON.stringify(DEFAULT_DATA.courses)),
       todos: parsed && Array.isArray(parsed.todos) ? parsed.todos : JSON.parse(JSON.stringify(DEFAULT_DATA.todos)),
       skills: parsed && Array.isArray(parsed.skills) ? parsed.skills : JSON.parse(JSON.stringify(DEFAULT_DATA.skills)),
-      habits: parsed && Array.isArray(parsed.habits) ? parsed.habits : JSON.parse(JSON.stringify(DEFAULT_DATA.habits))
+      habits: parsed && Array.isArray(parsed.habits) ? parsed.habits : JSON.parse(JSON.stringify(DEFAULT_DATA.habits)),
+      countdowns: parsed && Array.isArray(parsed.countdowns) ? parsed.countdowns : JSON.parse(JSON.stringify(DEFAULT_DATA.countdowns))
     };
     return this.data;
   },

@@ -260,6 +260,8 @@ input, textarea, select { font-family: inherit; }
 
 /* ---------- 输入 / 待办 ---------- */
 .add-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.add-row #todoText { flex: 1 1 200px; min-width: 0; }
+.add-row input[type="date"], .add-row input[type="time"], .add-row select { flex: 0 0 auto; width: auto; }
 .input {
   flex: 1; min-width: 180px;
   background: var(--panel-2); color: var(--text);
@@ -302,6 +304,58 @@ input, textarea, select { font-family: inherit; }
   font-size: 14px; padding: 5px 7px; border-radius: 7px; line-height: 1;
 }
 .ti-del:hover { color: var(--red); background: var(--red-soft); }
+
+/* 待办标签（日期 / 时间 / 象限） */
+.ti-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.ti-tag, .ti-date, .ti-time { font-size: 11px; padding: 2px 7px; border-radius: 6px; line-height: 1.5; }
+.ti-date { color: var(--text-2); background: var(--panel-2); }
+.ti-time { color: var(--orange); background: var(--orange-soft); margin-top: 0; }
+.ti-tag { font-weight: 600; }
+.ti-tag.q1 { color: var(--red); background: var(--red-soft); }
+.ti-tag.q2 { color: var(--blue); background: var(--blue-soft); }
+.ti-tag.q3 { color: var(--orange); background: var(--orange-soft); }
+.ti-tag.q4 { color: var(--muted); background: var(--panel-2); }
+
+/* 四象限视图 */
+.todo-quad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.quad-cell { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.quad-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.quad-title { font-weight: 700; font-size: 13.5px; }
+.quad-tip { font-size: 11px; color: var(--muted); }
+.quad-count { margin-left: auto; font-size: 12px; color: var(--muted); background: var(--panel-2); border-radius: 20px; padding: 1px 9px; }
+.quad-cell.q1 .quad-head { border-top: 3px solid var(--red); }
+.quad-cell.q2 .quad-head { border-top: 3px solid var(--blue); }
+.quad-cell.q3 .quad-head { border-top: 3px solid var(--orange); }
+.quad-cell.q4 .quad-head { border-top: 3px solid var(--muted); }
+.quad-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.quad-item { display: flex; align-items: center; gap: 9px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
+.qi-body { flex: 1; min-width: 0; }
+.qi-text { font-size: 13px; }
+.qi-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.check.sm { width: 18px; height: 18px; border-width: 2px; border-radius: 6px; font-size: 10px; }
+.ti-del.sm { font-size: 12px; padding: 3px 5px; }
+.empty-hint.sm { padding: 6px 0; font-size: 12px; }
+
+/* 首页最近倒计时 */
+.home-count-wrap { margin-bottom: 16px; }
+.home-cd-item { display: flex; align-items: center; gap: 10px; }
+.hcd-name { font-weight: 600; font-size: 13.5px; }
+.hcd-date { font-size: 12px; color: var(--muted); }
+.hcd-left { margin-left: auto; font-weight: 700; font-size: 15px; color: var(--blue); }
+.hcd-left.past { color: var(--muted); }
+.home-cd-more { font-size: 11px; color: var(--muted); margin-top: 6px; text-align: right; }
+
+/* 倒计时模块 */
+.countdown-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.cd-card { display: flex; align-items: center; gap: 16px; background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--blue); border-radius: 14px; padding: 16px 18px; }
+.cd-info { min-width: 0; }
+.cd-name { font-size: 15px; font-weight: 600; }
+.cd-date { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.cd-num { font-size: 38px; font-weight: 800; line-height: 1; color: var(--blue); font-variant-numeric: tabular-nums; }
+.cd-num.past { color: var(--muted); }
+.cd-unit { font-size: 13px; color: var(--muted); }
+.cd-del { margin-left: auto; border: none; background: transparent; color: var(--muted); font-size: 16px; padding: 6px 10px; border-radius: 8px; }
+.cd-del:hover { color: var(--red); background: var(--red-soft); }
 
 /* ---------- 技能 ---------- */
 .skill-grid {
@@ -510,6 +564,12 @@ input, textarea, select { font-family: inherit; }
     box-shadow: 0 4px 16px rgba(0,0,0,.35), inset 3px 0 0 var(--orange);
   }
   .skill-grid { grid-template-columns: 1fr; }
+  /* 手机端：四象限 2x2，倒计时卡片竖排 */
+  .todo-quad { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .cd-card { flex-wrap: wrap; gap: 8px 14px; padding: 14px; }
+  .cd-num { font-size: 30px; }
+  .cd-del { margin-left: auto; }
+  .home-cd-item { flex-wrap: wrap; }
   .next-card { flex-wrap: wrap; }
   .next-card .nc-time { margin-left: 0; }
   .habit-days { gap: 4px; margin-top: 7px; }
@@ -529,6 +589,12 @@ input, textarea, select { font-family: inherit; }
   .section-head h2 { font-size: 16px; }
   .seg-btn { padding: 6px 12px; font-size: 12.5px; }
   .nav-item { font-size: 10px; padding: 7px 1px; gap: 2px; }
+  /* 6 个导航项在极窄屏进一步收紧，避免挤爆 */
+  .sidenav { gap: 3px; padding: 6px 4px; }
+  .nav-item .ni { width: 18px; height: 18px; }
+  .nav-item .ni svg { width: 17px; height: 17px; }
+  .cd-card { gap: 6px 12px; }
+  .cd-num { font-size: 26px; }
   .topbar-actions .btn.ghost span { display: none; }
   .topbar-actions .btn.ghost svg { width: 17px; height: 17px; }
   /* 极窄屏：下方列表改单列，课程/习惯文字不被压 */

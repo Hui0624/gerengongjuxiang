@@ -17,6 +17,13 @@ function esc(s) {
 function dateStr(d) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
+function daysLeft(dateStrVal) {
+  if (!dateStrVal) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const [y, m, d] = dateStrVal.split("-").map(Number);
+  const target = new Date(y, m - 1, d); target.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
 
 /* ---------- 时间线常量 ---------- */
 const TL_START = 6 * 60;    // 06:00
@@ -642,14 +649,41 @@ function bindWeekUI() {
 }
 
 /* =========================================================
-   待办
+   待办（列表 / 四象限）
    ========================================================= */
+const QUADS = {
+  1: { name: "重要紧急", cls: "q1", tip: "马上做" },
+  2: { name: "重要不急", cls: "q2", tip: "排计划" },
+  3: { name: "紧急不重要", cls: "q3", tip: "尽量委托" },
+  4: { name: "不重要不急", cls: "q4", tip: "少做/不做" }
+};
+let todoMode = "list";
+
+function quadOf(t) { return QUADS[t.quad] || QUADS[2]; }
+function fmtDateShort(d) {
+  if (!d) return "";
+  if (d === todayStr()) return "今天";
+  const [, m, day] = d.split("-").map(Number);
+  return `${m}月${day}日`;
+}
+
 function renderTodo() {
-  const list = $("#todoList");
+  const list = $("#todoList"), quadView = $("#todoQuadView");
+  if (todoMode === "quad") {
+    list.classList.add("hidden");
+    quadView.classList.remove("hidden");
+    renderTodoQuad();
+    return;
+  }
+  list.classList.remove("hidden");
+  quadView.classList.add("hidden");
+
   const arr = [...Store.data.todos].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
-    const at = a.time ? hhmmToMin(a.time) : 9999;
-    const bt = b.time ? hhmmToMin(b.time) : 9999;
+    const qa = a.quad || 2, qb = b.quad || 2;
+    if (qa !== qb) return qa - qb;
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    const at = a.time ? hhmmToMin(a.time) : 9999, bt = b.time ? hhmmToMin(b.time) : 9999;
     return at - bt;
   });
 
@@ -658,15 +692,48 @@ function renderTodo() {
     return;
   }
 
-  list.innerHTML = arr.map(t => `
-    <div class="todo-item ${t.done ? "done" : ""}" data-id="${t.id}">
+  list.innerHTML = arr.map(t => {
+    const q = quadOf(t);
+    return `<div class="todo-item ${t.done ? "done" : ""}" data-id="${t.id}">
       <button class="check" data-act="toggle" title="标记完成">✓</button>
       <div class="ti-body">
         <div class="ti-text">${esc(t.text)}</div>
-        ${t.time ? `<div class="ti-time">⏰ ${t.time}</div>` : ""}
+        <div class="ti-tags">
+          <span class="ti-tag ${q.cls}">${q.name}</span>
+          ${t.date ? `<span class="ti-date">📅 ${fmtDateShort(t.date)}</span>` : ""}
+          ${t.time ? `<span class="ti-time">⏰ ${t.time}</span>` : ""}
+        </div>
       </div>
       <button class="ti-del" data-act="del" title="删除">✕</button>
-    </div>`).join("");
+    </div>`;
+  }).join("");
+}
+
+function renderTodoQuad() {
+  const quadView = $("#todoQuadView");
+  const items = Store.data.todos.filter(t => !t.done);
+  quadView.innerHTML = [1, 2, 3, 4].map(qn => {
+    const q = QUADS[qn];
+    const list = items.filter(t => (t.quad || 2) === qn);
+    return `<div class="quad-cell ${q.cls}">
+      <div class="quad-head">
+        <span class="quad-title">${q.name}</span>
+        <span class="quad-tip">${q.tip}</span>
+        <span class="quad-count">${list.length}</span>
+      </div>
+      <div class="quad-body">
+        ${list.length ? list.map(t => `
+          <div class="quad-item" data-id="${t.id}">
+            <button class="check sm" data-act="toggle" title="完成">✓</button>
+            <div class="qi-body">
+              <div class="qi-text">${esc(t.text)}</div>
+              <div class="qi-meta">${fmtDateShort(t.date)}${t.time ? " · " + t.time : ""}</div>
+            </div>
+            <button class="ti-del sm" data-act="del" title="删除">✕</button>
+          </div>`).join("") : `<div class="empty-hint sm">空</div>`}
+      </div>
+    </div>`;
+  }).join("");
 }
 
 function addTodo() {
@@ -675,12 +742,16 @@ function addTodo() {
   Store.data.todos.push({
     id: uid(), text,
     time: $("#todoTime").value || "",
-    date: todayStr(), done: false
+    date: $("#todoDate").value || todayStr(),
+    quad: parseInt($("#todoQuad").value, 10) || 2,
+    done: false
   });
   Store.save();
   $("#todoText").value = "";
   $("#todoTime").value = "";
-  renderTodo(); renderTimeline(); renderNextCard();
+  $("#todoDate").value = todayStr();
+  $("#todoQuad").value = "2";
+  renderTodo(); renderTimeline(); renderNextCard(); renderHome();
 }
 
 function toggleTodo(id) {
@@ -688,13 +759,57 @@ function toggleTodo(id) {
   if (!t) return;
   t.done = !t.done;
   Store.save();
-  renderTodo(); renderTimeline(); renderNextCard();
+  renderTodo(); renderTimeline(); renderNextCard(); renderHome();
 }
 
 function deleteTodo(id) {
   Store.data.todos = Store.data.todos.filter(x => x.id !== id);
   Store.save();
-  renderTodo(); renderTimeline(); renderNextCard();
+  renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+}
+
+/* =========================================================
+   倒计时
+   ========================================================= */
+function renderCountdown() {
+  const list = $("#countdownList");
+  if (!list) return;
+  const cds = [...Store.data.countdowns].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+  const hint = $("#cdHint");
+  if (hint) hint.textContent = cds.length ? `共 ${cds.length} 个` : "";
+  if (!cds.length) {
+    list.innerHTML = `<div class="empty-hint">还没有倒计时，在下面加一个吧</div>`;
+    return;
+  }
+  list.innerHTML = cds.map(c => {
+    const left = daysLeft(c.date);
+    return `<div class="cd-card" data-id="${c.id}">
+      <div class="cd-info">
+        <div class="cd-name">${esc(c.name)}</div>
+        <div class="cd-date">${c.date.slice(5).replace("-", "/")}</div>
+      </div>
+      <div class="cd-num ${left < 0 ? "past" : ""}">${left >= 0 ? left : "—"}</div>
+      <div class="cd-unit">${left >= 0 ? "天" : "已过期"}</div>
+      <button class="cd-del" data-act="cd-del" title="删除">✕</button>
+    </div>`;
+  }).join("");
+}
+
+function addCountdown() {
+  const name = $("#cdName").value.trim();
+  const date = $("#cdDate").value;
+  if (!name || !date) { alert("请填写名称和日期"); return; }
+  Store.data.countdowns.push({ id: uid(), name, date });
+  Store.save();
+  $("#cdName").value = "";
+  $("#cdDate").value = "";
+  renderCountdown(); renderHome();
+}
+
+function deleteCountdown(id) {
+  Store.data.countdowns = Store.data.countdowns.filter(x => x.id !== id);
+  Store.save();
+  renderCountdown(); renderHome();
 }
 
 /* =========================================================
@@ -1682,6 +1797,7 @@ function renderHome() {
     <div class="home-todo-item ${t.done ? "done" : ""}">
       <span class="ht-check ${t.done ? "on" : ""}">${t.done ? "✓" : ""}</span>
       <span class="ht-text">${esc(t.text)}</span>
+      <span class="ht-tag ${quadOf(t).cls}">${quadOf(t).name}</span>
       ${t.time ? `<span class="ht-time">${t.time}</span>` : ""}
     </div>`).join("");
 
@@ -1717,6 +1833,23 @@ function renderHome() {
       <div class="hs-top"><span class="hs-name">${esc(k.name)}</span><span class="hs-pct">${k.progress || 0}%</span></div>
       <div class="hs-bar"><div class="hs-fill" style="width:${Math.min(100, k.progress || 0)}%"></div></div>
     </div>`).join("");
+
+  // 最近倒计时
+  const elCD = $("#homeCountdown");
+  if (elCD) {
+    const cds = [...Store.data.countdowns].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
+    const cdHint = $("#homeCountHint");
+    if (cdHint) cdHint.textContent = cds.length ? `共 ${cds.length} 个` : "";
+    if (!cds.length) elCD.innerHTML = `<div class="empty-hint">还没有倒计时</div>`;
+    else {
+      const c = cds[0], left = daysLeft(c.date);
+      elCD.innerHTML = `<div class="home-cd-item">
+        <span class="hcd-name">${esc(c.name)}</span>
+        <span class="hcd-date">${c.date.slice(5).replace("-", "/")}</span>
+        <span class="hcd-left ${left < 0 ? "past" : ""}">${left >= 0 ? "还有 " + left + " 天" : "已过期"}</span>
+      </div>` + (cds.length > 1 ? `<div class="home-cd-more">另有 ${cds.length - 1} 个 →</div>` : "");
+    }
+  }
 }
 
 /* 周课表：整周适配 / 原生全屏 */
@@ -1742,6 +1875,10 @@ function switchView(view) {
     renderNextCard();
     if (tlMode === "week") renderWeek();
     else renderTimeline(true);
+  } else if (view === "todo") {
+    renderTodo();
+  } else if (view === "countdown") {
+    renderCountdown();
   }
 }
 
@@ -1754,6 +1891,7 @@ function renderAll(scrollToNow = true) {
   renderTodo();
   renderSkills();
   renderCheckin();
+  renderCountdown();
   updateSyncBadge();
 }
 
@@ -1794,12 +1932,41 @@ function init() {
   /* 待办 */
   $("#todoAdd").addEventListener("click", addTodo);
   $("#todoText").addEventListener("keydown", e => { if (e.key === "Enter") addTodo(); });
-  $("#todoList").addEventListener("click", e => {
-    const btn = e.target.closest("[data-act]");
+  const todoDateEl = $("#todoDate");
+  if (todoDateEl) todoDateEl.value = todayStr();
+  function bindTodoClicks(rootSel, itemSel) {
+    const root = $(rootSel);
+    if (!root) return;
+    root.addEventListener("click", e => {
+      const btn = e.target.closest("[data-act]");
+      if (!btn) return;
+      const item = btn.closest(itemSel);
+      if (!item) return;
+      const id = item.dataset.id;
+      if (btn.dataset.act === "toggle") toggleTodo(id);
+      if (btn.dataset.act === "del") deleteTodo(id);
+    });
+  }
+  bindTodoClicks("#todoList", ".todo-item");
+  bindTodoClicks("#todoQuadView", ".quad-item");
+  const todoSeg = $("#todoSeg");
+  if (todoSeg) todoSeg.addEventListener("click", e => {
+    const b = e.target.closest(".seg-btn");
+    if (!b) return;
+    todoMode = b.dataset.mode;
+    $$(".seg-btn", todoSeg).forEach(x => x.classList.toggle("active", x === b));
+    renderTodo();
+  });
+
+  /* 倒计时 */
+  $("#cdAdd").addEventListener("click", addCountdown);
+  $("#cdName").addEventListener("keydown", e => { if (e.key === "Enter") addCountdown(); });
+  const countdownList = $("#countdownList");
+  if (countdownList) countdownList.addEventListener("click", e => {
+    const btn = e.target.closest("[data-act='cd-del']");
     if (!btn) return;
-    const id = btn.closest(".todo-item").dataset.id;
-    if (btn.dataset.act === "toggle") toggleTodo(id);
-    if (btn.dataset.act === "del") deleteTodo(id);
+    const id = btn.closest(".cd-card").dataset.id;
+    deleteCountdown(id);
   });
 
   /* 打卡 */

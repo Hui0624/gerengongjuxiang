@@ -97,6 +97,10 @@
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c3.6 0 6.5-2.7 6.5-6.2 0-2.4-1.3-4.2-3-6.1-1.3-1.5-2.6-3.1-3-5.2-.6 1.6-1.7 2.7-2.9 4C8 9.2 6.4 11 6.4 13.5 6.4 17.8 8.9 21 12 21z"/><path d="M12 21c-1.6 0-2.8-1.3-2.8-2.9 0-1.6 1.1-2.6 2.8-4.4 1.5 1.7 2.8 2.8 2.8 4.4C14.8 19.7 13.6 21 12 21z" opacity=".5"/></svg></span>
         <span>打卡</span>
       </button>
+      <button class="nav-item" data-view="countdown">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M7 21h10"/><path d="M8 3c0 4 4 4 4 9s-4 5-4 9M16 3c0 4-4 4-4 9s4 5 4 9"/><path d="M9.5 9.5 12 12l2.5-2.5"/></svg></span>
+        <span>倒计时</span>
+      </button>
     </nav>
 
     <main class="content">
@@ -125,6 +129,10 @@
             <div class="section-head"><h2>技能进度</h2><span class="hint">平均掌握度</span></div>
             <div id="homeSkills" class="home-box"></div>
           </div>
+        </div>
+        <div class="home-count-wrap">
+          <div class="section-head"><h2>最近倒计时</h2><span class="hint" id="homeCountHint"></span></div>
+          <div id="homeCountdown" class="home-box"></div>
         </div>
       </section>
 
@@ -172,13 +180,28 @@
 
       <!-- 待办 -->
       <section id="view-todo" class="view">
-        <div class="section-head"><h2>待办清单</h2><span class="hint">设定时间后会出现在时间线上</span></div>
+        <div class="section-head">
+          <h2>待办清单</h2>
+          <div class="seg" id="todoSeg">
+            <button class="seg-btn active" data-mode="list">列表</button>
+            <button class="seg-btn" data-mode="quad">四象限</button>
+          </div>
+          <span class="hint">设定时间后会出现在时间线上</span>
+        </div>
         <div class="add-row">
           <input id="todoText" class="input" placeholder="要做什么？例如：复习英语单词" />
+          <input id="todoDate" class="input date-input" type="date" title="日期（默认今天）" />
           <input id="todoTime" class="input time-input" type="time" title="可选：设定时间" />
+          <select id="todoQuad" class="input quad-input" title="优先级象限">
+            <option value="1">①重要紧急</option>
+            <option value="2" selected>②重要不急</option>
+            <option value="3">③紧急不重要</option>
+            <option value="4">④不重要不急</option>
+          </select>
           <button id="todoAdd" class="btn primary">添加</button>
         </div>
         <div id="todoList" class="todo-list"></div>
+        <div id="todoQuadView" class="todo-quad hidden"></div>
       </section>
 
       <!-- 技能 -->
@@ -195,6 +218,17 @@
         <div class="add-row">
           <input id="habitText" class="input" placeholder="新习惯，例如：早起 6:30" />
           <button id="habitAdd" class="btn primary">添加习惯</button>
+        </div>
+      </section>
+
+      <!-- 倒计时 -->
+      <section id="view-countdown" class="view">
+        <div class="section-head"><h2>倒计时</h2><span class="hint" id="cdHint"></span></div>
+        <div id="countdownList" class="countdown-list"></div>
+        <div class="add-row">
+          <input id="cdName" class="input" placeholder="名称，如：期末考试" />
+          <input id="cdDate" class="input date-input" type="date" />
+          <button id="cdAdd" class="btn primary">＋ 添加倒计时</button>
         </div>
       </section>
     </main>
