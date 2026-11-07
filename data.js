@@ -41,8 +41,13 @@ const DEFAULT_DATA = {
   settings: {
     /* 本学期第 1 周的周一，格式 YYYY-MM-DD；留空则周次显示为「第 ? 周」 */
     termStart: "",
-    /* 周主题：按周号存覆盖项，例如 { "12": { skillId: "s1", goal: "跑通 I2C" } }；留空则该周自动轮转技能 */
-    weekThemes: {}
+    /* 周主题：按周号存覆盖项，例如 { "12": { skillId: "s1", goal: "跑通 I2C", target: 5 } }；留空则该周自动轮转技能 */
+    weekThemes: {},
+    /* 时间线显示时段（小时）。tlStart 可 0~12，tlEnd 可 12~24 */
+    tlStart: 6,
+    tlEnd: 24,
+    /* normal=每小时60px，compact=46px */
+    tlDensity: "normal"
   },
   courses: [
     { id: "c1", name: "高等数学", day: 1, start: "08:00", end: "09:40", room: "3-201" },
@@ -110,6 +115,16 @@ const DEFAULT_DATA = {
   ]
 };
 
+/* 给旧数据补齐新字段（训练记录 / 技能绑定 / 待办结束时间），避免升级后读到 undefined */
+function fillItemDefaults(d) {
+  if (!d) return d;
+  d.todos = (Array.isArray(d.todos) ? d.todos : []).map(t => Object.assign({ end: "" }, t));
+  d.skills = (Array.isArray(d.skills) ? d.skills : []).map(s => Object.assign({ trainLog: {}, target: 100 }, s));
+  d.habits = (Array.isArray(d.habits) ? d.habits : []).map(h => Object.assign({ skillId: "" }, h));
+  d.countdowns = (Array.isArray(d.countdowns) ? d.countdowns : []).map(c => Object.assign({ skillId: "" }, c));
+  return d;
+}
+
 /* ---------- 存储 ---------- */
 const Store = {
   data: null,
@@ -134,7 +149,7 @@ const Store = {
       habits: parsed && Array.isArray(parsed.habits) ? parsed.habits : JSON.parse(JSON.stringify(DEFAULT_DATA.habits)),
       countdowns: parsed && Array.isArray(parsed.countdowns) ? parsed.countdowns : JSON.parse(JSON.stringify(DEFAULT_DATA.countdowns))
     };
-    return this.data;
+    return fillItemDefaults(this.data);
   },
 
   save() {
@@ -146,7 +161,7 @@ const Store = {
   },
 
   reset() {
-    this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    this.data = fillItemDefaults(JSON.parse(JSON.stringify(DEFAULT_DATA)));
     this.save();
   }
 };

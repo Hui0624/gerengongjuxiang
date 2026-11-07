@@ -1161,3 +1161,105 @@ input, textarea, select { font-family: inherit; }
 /* ============ 技能卡：本周主题角标 ============ */
 .sc-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green); border: 1px solid var(--green-line); }
 .skill-card.is-week-theme { border-color: var(--green-line); box-shadow: 0 0 0 1px var(--green-line), var(--shadow); }
+
+/* ============ 首页：一键聚合条 ============ */
+.quick-bar {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
+.qk {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 12px 14px; border-radius: 14px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--border);
+  box-shadow: var(--shadow); color: var(--text); min-width: 0;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.qk:hover { transform: translateY(-2px); border-color: var(--border-2); box-shadow: var(--shadow-lg); }
+.qk:active { transform: scale(.985); }
+.qk-ico { font-size: 18px; flex: none; }
+.qk-body { display: flex; flex-direction: column; min-width: 0; }
+.qk-main { font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qk-main b { font-variant-numeric: tabular-nums; }
+.qk-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qk-check { border-left: 3px solid var(--green); }
+.qk-todo { border-left: 3px solid var(--blue); }
+.qk-train { border-left: 3px solid var(--orange); }
+
+/* ============ 待办：单框录入 ============ */
+.todo-add { display: flex; gap: 10px; margin-bottom: 12px; }
+.todo-quick { flex: 1 1 auto; min-width: 0; }
+.todo-add .btn { flex: none; }
+#todoAdv { margin-bottom: 12px; }
+
+/* ============ 轻提示 ============ */
+.wb-toast {
+  position: fixed; left: 50%; bottom: 92px; transform: translate(-50%, 12px);
+  z-index: 200; pointer-events: none;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border-2); border-radius: 12px;
+  padding: 10px 16px; font-size: 13px; box-shadow: var(--shadow-lg);
+  opacity: 0; transition: opacity .2s ease, transform .2s ease;
+  max-width: calc(100vw - 40px);
+}
+.wb-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ============ 技能卡：训练按钮 / 折叠方法 / 拖拽 ============ */
+.sc-train-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.train-btn {
+  flex: none; cursor: pointer; border: none;
+  padding: 7px 14px; border-radius: 9px;
+  background: var(--accent-grad); color: #fff;
+  font-size: 13px; font-weight: 650;
+  box-shadow: 0 4px 14px -6px var(--green);
+  transition: transform .14s ease, filter .14s ease;
+}
+.train-btn:hover { filter: brightness(1.06); }
+.train-btn:active { transform: scale(.96); }
+.sc-train-meta { font-size: 11.5px; color: var(--muted); }
+
+.method-details { border-top: 1px dashed var(--border); padding-top: 2px; }
+.method-details > summary {
+  list-style: none; cursor: pointer; font-size: 12px; color: var(--muted);
+  padding: 4px 0; letter-spacing: .3px; user-select: none;
+}
+.method-details > summary::-webkit-details-marker { display: none; }
+.method-details > summary::before { content: "▸ "; }
+.method-details[open] > summary::before { content: "▾ "; }
+.method-details[open] > summary { margin-bottom: 6px; }
+
+.skill-card.dragging { opacity: .5; }
+.skill-card.drag-over { border-color: var(--green-line); box-shadow: 0 0 0 2px var(--green-line); }
+
+/* ============ 首页待办：逾期 ============ */
+.home-todo-item.overdue { background: var(--red-soft); border-radius: 8px; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
+.ht-od { font-size: 11px; font-weight: 700; color: var(--red); background: var(--red-soft); border: 1px solid var(--red-line); padding: 1px 7px; border-radius: 999px; flex: none; }
+
+/* ============ 首页打卡：关联技能 / 今天不用打 ============ */
+.hh-link { font-size: 11px; color: var(--green); margin-left: 6px; }
+.home-habit.offday { opacity: .45; }
+
+/* ============ 打卡页：关联技能标签 ============ */
+.habit-link-skill { font-size: 11.5px; color: var(--green); background: var(--green-soft); border: 1px solid var(--green-line); padding: 1px 8px; border-radius: 999px; }
+
+/* ============ 倒计时：关联技能行 ============ */
+.cd-link { font-size: 11.5px; color: var(--green); margin-top: 4px; }
+
+/* ============ 周主题：训练行 / 按钮组 ============ */
+.wt-train { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.wt-train b { color: var(--green); }
+.wt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.wt-actions .btn { flex: none; }
+
+/* ============ 皮肤预览：跟随系统 ============ */
+.tc-preview.pv-auto { background: linear-gradient(100deg, #f5f7fb 0 50%, #0e1116 50% 100%); }
+
+@media (max-width: 640px) {
+  .quick-bar { gap: 7px; }
+  .qk { padding: 10px 9px; gap: 6px; }
+  .qk-ico { font-size: 15px; }
+  .qk-main { font-size: 12px; }
+  .qk-sub { font-size: 10.5px; }
+  .todo-add { flex-wrap: wrap; }
+  .todo-quick { flex: 1 1 100%; }
+  .todo-add .btn { flex: 1 1 auto; }
+}

@@ -23,14 +23,19 @@
         var t = q || localStorage.getItem("wb_theme") || "dark";
         if (q && !skin) { try { localStorage.setItem("wb_theme", q); } catch (e) {} }
         var el = document.documentElement;
-        el.setAttribute("data-theme", t);
+        var eff = t;
+        if (t === "auto") {
+          try { eff = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }
+          catch (e) { eff = "dark"; }
+        }
+        el.setAttribute("data-theme", eff);
         if (skin) {
           el.style.setProperty("--skin-image", 'url("' + skin + '")');
           el.style.setProperty("--skin-dim", "0.35");
           el.style.setProperty("--skin-blur", "0px");
           return;
         }
-        if (t === "photo") {
+        if (eff === "photo") {
           var img = localStorage.getItem("wb_skin_image") || "";
           var dim = localStorage.getItem("wb_skin_dim") || "42";
           var blur = localStorage.getItem("wb_skin_blur") || "0";
@@ -117,6 +122,7 @@
         <div class="home-hero">
           <div class="home-date" id="homeDate"></div>
         </div>
+        <div class="quick-bar" id="homeQuick"></div>
         <div class="action-hero" id="homeAction"></div>
         <div class="week-theme" id="homeWeekTheme"></div>
         <div class="home-stats" id="homeStats"></div>
@@ -155,7 +161,8 @@
             <button class="seg-btn active" data-mode="day">今日</button>
             <button class="seg-btn" data-mode="week">本周</button>
           </div>
-          <span class="hint" id="tlHint">课程与待办混排 · 红线为当前时刻</span>
+          <button id="tlSetting" class="btn ghost" type="button" title="设置显示时段与密度">⚙ 时段</button>
+          <span class="hint" id="tlHint">课程与待办混排 · 点空白处加待办</span>
         </div>
 
         <div class="tl-scroll" id="tlScroll">
@@ -198,17 +205,21 @@
           </div>
           <span class="hint">设定时间后会出现在时间线上</span>
         </div>
-        <div class="add-row">
-          <input id="todoText" class="input" placeholder="要做什么？例如：复习英语单词" />
+        <div class="todo-add">
+          <input id="todoText" class="input todo-quick" placeholder="试试：明天下午3点 交作业（回车即加）" />
+          <button id="todoMore" class="btn ghost" type="button" title="日期 / 时间 / 优先级">更多</button>
+          <button id="todoAdd" class="btn primary" type="button">添加</button>
+        </div>
+        <div id="todoAdv" class="add-row adv hidden">
           <input id="todoDate" class="input date-input" type="date" title="日期（默认今天）" />
-          <input id="todoTime" class="input time-input" type="time" title="可选：设定时间" />
+          <input id="todoTime" class="input time-input" type="time" title="开始时间" />
+          <input id="todoEnd" class="input time-input" type="time" title="结束时间（可选，决定时间线上的长度）" />
           <select id="todoQuad" class="input quad-input" title="优先级象限">
             <option value="1">①重要紧急</option>
             <option value="2" selected>②重要不急</option>
             <option value="3">③紧急不重要</option>
             <option value="4">④不重要不急</option>
           </select>
-          <button id="todoAdd" class="btn primary">添加</button>
         </div>
         <div id="todoList" class="todo-list"></div>
         <div id="todoQuadView" class="todo-quad hidden"></div>
@@ -238,6 +249,7 @@
         <div class="add-row">
           <input id="cdName" class="input" placeholder="名称，如：期末考试" />
           <input id="cdDate" class="input date-input" type="date" />
+          <select id="cdSkill" class="input" title="关联技能（可选，会显示本周训练进度）"></select>
           <button id="cdAdd" class="btn primary" type="button">＋ 添加倒计时</button>
         </div>
       </section>

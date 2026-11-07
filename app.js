@@ -25,12 +25,37 @@ function daysLeft(dateStrVal) {
   return Math.round((target - today) / 86400000);
 }
 
-/* ---------- 时间线常量 ---------- */
-const TL_START = 6 * 60;    // 06:00
-const TL_END = 24 * 60;     // 24:00
-const PX_PER_HOUR = 60;
+/* ---------- 时间线常量（可由设置覆盖） ---------- */
+let TL_START = 6 * 60;    // 默认 06:00
+let TL_END = 24 * 60;     // 默认 24:00
+let PX_PER_HOUR = 60;     // normal=60 / compact=46
+
+function applyTlSettings() {
+  const st = (Store.data && Store.data.settings) || {};
+  const s = Number(st.tlStart), e = Number(st.tlEnd);
+  TL_START = (isFinite(s) && s >= 0 && s <= 12) ? s * 60 : 6 * 60;
+  TL_END = (isFinite(e) && e >= 12 && e <= 24) ? e * 60 : 24 * 60;
+  if (TL_END <= TL_START + 120) TL_END = 24 * 60;
+  PX_PER_HOUR = st.tlDensity === "compact" ? 46 : 60;
+}
 
 function minToTop(min) { return ((min - TL_START) / 60) * PX_PER_HOUR; }
+
+/* 轻量提示 */
+let wbToastTimer = null;
+function toast(msg) {
+  let el = $("#wbToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "wbToast";
+    el.className = "wb-toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(wbToastTimer);
+  wbToastTimer = setTimeout(() => el.classList.remove("show"), 1900);
+}
 
 /* =========================================================
    皮肤 / 主题
@@ -41,14 +66,27 @@ const Theme = {
   DIM: "wb_skin_dim",
   BLUR: "wb_skin_blur",
 
-  get current() {
-    return document.documentElement.getAttribute("data-theme") || "dark";
+  /* 用户选择的皮肤名，可能是 auto */
+  get stored() {
+    try { return localStorage.getItem(this.KEY) || "dark"; } catch (e) { return "dark"; }
   },
+
+  /* 实际生效的皮肤（auto 时跟随系统） */
+  get effective() {
+    const t = this.stored;
+    if (t === "auto") {
+      const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return dark ? "dark" : "light";
+    }
+    return t;
+  },
+
+  get current() { return this.effective; },
 
   /* 应用皮肤（照片皮肤需要把图片/遮罩写进 CSS 变量） */
   apply() {
     const el = document.documentElement;
-    const t = this.current;
+    const t = this.effective;
     el.setAttribute("data-theme", t);
     if (t === "photo") {
       const img = this.getImage();
@@ -71,8 +109,6 @@ const Theme = {
   },
 
   set(name) {
-    /* 先落到元素上，apply 里读到的才是新值 */
-    document.documentElement.setAttribute("data-theme", name);
     try { localStorage.setItem(this.KEY, name); } catch (e) {}
     this.apply();
   },
@@ -127,8 +163,9 @@ function readImageCompressed(file, cb) {
 }
 
 function openThemeModal() {
-  const cur = Theme.current;
+  const cur = Theme.stored;
   const cards = [
+    { id: "auto", name: "跟随系统", desc: "白天白 · 晚上黑", pv: "pv-auto" },
     { id: "light", name: "简洁白", desc: "白天 / 明亮环境", pv: "pv-light" },
     { id: "dark", name: "暗夜黑", desc: "晚上看不刺眼", pv: "pv-dark" },
     { id: "ink", name: "国风", desc: "宣纸水墨 · 朱砂印章", pv: "pv-ink" },
@@ -260,6 +297,7 @@ function renderTopbar() {
    时间线
    ========================================================= */
 function renderTimeline(scrollToNow = false) {
+  applyTlSettings();
   const canvas = $("#tlCanvas");
   const scroll = $("#tlScroll");
   const keep = scroll ? scroll.scrollTop : 0;
@@ -272,11 +310,13 @@ function renderTimeline(scrollToNow = false) {
 
   let html = "";
 
-  // 小时格与半点虚线
-  for (let h = 6; h <= 24; h++) {
-    const top = (h - 6) * PX_PER_HOUR;
+  // 小时格与半点虚线（起止可配置）
+  const h0 = Math.floor(TL_START / 60);
+  const h1 = Math.floor(TL_END / 60);
+  for (let h = h0; h <= h1; h++) {
+    const top = ((h * 60 - TL_START) / 60) * PX_PER_HOUR;
     html += `<div class="tl-hour" style="top:${top}px"><span class="tl-hour-label">${pad2(h)}:00</span></div>`;
-    if (h < 24) html += `<div class="tl-half" style="top:${top + 30}px"></div>`;
+    if (h < h1) html += `<div class="tl-half" style="top:${top + PX_PER_HOUR / 2}px"></div>`;
   }
 
   // 课程块：同一时段有多门课时自动分泳道并排，不再叠在一起
@@ -322,18 +362,22 @@ function renderTimeline(scrollToNow = false) {
     html += `<div class="tl-empty">本周这天没有课程</div>`;
   }
 
-  // 待办块：时间挨得太近时往下错开，避免互相盖住
-  let prevTop = -999;
+  // 待办块：填了结束时间就按真实时长画；只有真正重叠时才贴着下移，不再无条件推远
+  let prevTop = -999, prevH = 0;
   todos
     .slice()
     .sort((a, b) => hhmmToMin(a.time) - hhmmToMin(b.time))
     .forEach(t => {
-      let top = Math.max(0, minToTop(hhmmToMin(t.time)));
-      if (top < prevTop + 46) top = prevTop + 46;
-      prevTop = top;
-      html += `<div class="tl-block todo ${t.done ? "done" : ""}" style="top:${top}px;height:42px" data-todo="${t.id}">
+      const s = hhmmToMin(t.time);
+      const en = t.end ? hhmmToMin(t.end) : 0;
+      const hgt = en > s ? Math.max(24, ((en - s) / 60) * PX_PER_HOUR) : 42;
+      let top = Math.max(0, minToTop(s));
+      if (top < prevTop + prevH) top = prevTop + prevH + 2;
+      prevTop = top; prevH = hgt;
+      const meta = en > s ? `${t.time}–${t.end}` : t.time;
+      html += `<div class="tl-block todo ${t.done ? "done" : ""}" style="top:${top}px;height:${hgt}px" data-todo="${t.id}">
         <div class="tb-name">${t.done ? "✔ " : "○ "}${esc(t.text)}</div>
-        <div class="tb-meta">${t.time}</div>
+        <div class="tb-meta">${meta}</div>
       </div>`;
     });
 
@@ -342,6 +386,7 @@ function renderTimeline(scrollToNow = false) {
     html += `<div class="now-line" style="top:${minToTop(nm)}px"><span class="now-tag">现在 ${minToHHMM(nm)}</span></div>`;
   }
 
+  canvas.style.height = (((TL_END - TL_START) / 60) * PX_PER_HOUR) + "px";
   canvas.innerHTML = html;
 
   // 滚动位置
@@ -466,15 +511,15 @@ function currentWeekNo() {
 function getWeeklyTheme() {
   const wno = currentWeekNo();
   const skills = (Store.data && Store.data.skills) || [];
-  if (!skills.length) return { weekNo: wno, skill: null, goal: "", isOverride: false };
+  if (!skills.length) return { weekNo: wno, skill: null, goal: "", target: 5, isOverride: false };
   const wt = (Store.data.settings && Store.data.settings.weekThemes) || {};
   const ov = wt[wno] || null;
   if (ov && ov.skillId) {
     const s = skills.find(x => x.id === ov.skillId);
-    if (s) return { weekNo: wno, skill: s, goal: ov.goal || "", isOverride: true };
+    if (s) return { weekNo: wno, skill: s, goal: ov.goal || "", target: Number(ov.target) || 5, isOverride: true };
   }
   const idx = ((wno - 1) % skills.length + skills.length) % skills.length;
-  return { weekNo: wno, skill: skills[idx], goal: "", isOverride: false };
+  return { weekNo: wno, skill: skills[idx], goal: "", target: 5, isOverride: false };
 }
 
 /* 正方周次写法很杂："2周,5-6周,10周,13-17周(单),18周"
@@ -711,7 +756,7 @@ function todoItemHTML(t) {
       <div class="ti-tags">
         <span class="ti-tag ${q.cls}">${q.name}</span>
         ${t.date ? `<span class="ti-date">📅 ${fmtDateShort(t.date)}</span>` : ""}
-        ${t.time ? `<span class="ti-time">⏰ ${t.time}</span>` : ""}
+        ${t.time ? `<span class="ti-time">⏰ ${t.time}${t.end ? "–" + t.end : ""}</span>` : ""}
       </div>
     </div>
     <button class="ti-del" data-act="del" title="删除">✕</button>
@@ -793,22 +838,182 @@ function renderTodoQuad() {
   }).join("");
 }
 
+/* 中文自然语言解析：把「明天下午3点半 交作业」拆成日期 / 时间 / 象限 */
+function parseTodoInput(raw) {
+  let s = String(raw == null ? "" : raw).trim();
+  const out = { text: s, date: "", time: "", end: "", quad: 2 };
+  if (!s) return out;
+  const base = new Date();
+  let hasDate = false, hasTime = false;
+  const mapW = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 7, "天": 7, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7 };
+
+  // 相对日
+  const rel = { "大后天": 3, "后天": 2, "明天": 1, "明日": 1, "明早": 1, "明晚": 1, "今天": 0, "今日": 0, "今早": 0, "今晚": 0 };
+  let relHit = null;
+  for (const k in rel) { if (s.indexOf(k) >= 0) { relHit = k; break; } }
+  if (relHit) {
+    const d = new Date(base); d.setDate(d.getDate() + rel[relHit]);
+    out.date = dateStr(d); hasDate = true;
+    if (relHit.indexOf("晚") >= 0) { out.time = "20:00"; hasTime = true; }
+    else if (relHit.indexOf("早") >= 0) { out.time = "08:00"; hasTime = true; }
+    s = s.replace(relHit, " ");
+  }
+
+  // 周几 / 下周几
+  if (!hasDate) {
+    const wm = s.match(/(下周|这周|本周|周|星期|礼拜)([一二三四五六日天1-7])/);
+    if (wm) {
+      const target = mapW[wm[2]];
+      const cur = base.getDay() === 0 ? 7 : base.getDay();
+      let diff = target - cur;
+      if (wm[1] === "下周") diff += 7;
+      else if (diff < 0) diff += 7;
+      const d = new Date(base); d.setDate(d.getDate() + diff);
+      out.date = dateStr(d); hasDate = true;
+      s = s.replace(wm[0], " ");
+    }
+  }
+
+  // M月D日 / M-D / M/D
+  if (!hasDate) {
+    const mm = s.match(/(\d{1,2})\s*[月\-\/]\s*(\d{1,2})\s*日?/);
+    if (mm) {
+      const y = base.getFullYear();
+      const d = new Date(y, Number(mm[1]) - 1, Number(mm[2]));
+      if (d < new Date(y, base.getMonth(), base.getDate())) d.setFullYear(y + 1);
+      if (!isNaN(d.getTime())) { out.date = dateStr(d); hasDate = true; s = s.replace(mm[0], " "); }
+    }
+  }
+
+  // 时间：上午/下午/晚上 + 3点 / 3点半 / 3:20
+  const tm = s.match(/(凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|夜间)?\s*(\d{1,2})\s*(?:[:：]\s*(\d{1,2})|点(?:半|(\d{1,2})\s*分)?)/);
+  if (tm) {
+    let h = Number(tm[2]);
+    let mi = tm[3] ? Number(tm[3]) : (tm[4] ? Number(tm[4]) : (tm[0].indexOf("半") >= 0 ? 30 : 0));
+    const seg = tm[1] || "";
+    if (/(下午|傍晚|晚上|夜里|夜间|中午)/.test(seg) && h < 12) h += 12;
+    if (/凌晨/.test(seg) && h === 12) h = 0;
+    if (h >= 0 && h <= 23 && mi >= 0 && mi <= 59) {
+      out.time = `${pad2(h)}:${pad2(mi)}`; hasTime = true;
+      s = s.replace(tm[0], " ");
+    }
+  }
+
+  // 结束时间：到5点 / 5点-6点
+  const em = s.match(/(?:到|至|~|～|-)\s*(\d{1,2})\s*(?:[:：]\s*(\d{1,2})|点(?:半)?)/);
+  if (hasTime && em) {
+    let eh = Number(em[1]);
+    let emi = em[2] ? Number(em[2]) : (em[0].indexOf("半") >= 0 ? 30 : 0);
+    if (/(下午|晚上)/.test((tm && tm[1]) || "") && eh < 12) eh += 12;
+    if (eh >= 0 && eh <= 23) { out.end = `${pad2(eh)}:${pad2(emi)}`; s = s.replace(em[0], " "); }
+  }
+
+  // 优先级关键词
+  if (/重要.*紧急|紧急.*重要/.test(s) && s.indexOf("不重要") < 0) out.quad = 1;
+  else if (s.indexOf("紧急") >= 0 && s.indexOf("不重要") < 0) out.quad = 3;
+
+  out.text = s.replace(/\s+/g, " ").replace(/^[,，。、;；\s]+|[,，。、;；\s]+$/g, "").trim() || out.text;
+  return out;
+}
+
 function addTodo() {
-  const text = $("#todoText").value.trim();
-  if (!text) return;
-  Store.data.todos.push({
-    id: uid(), text,
-    time: $("#todoTime").value || "",
-    date: $("#todoDate").value || todayStr(),
-    quad: parseInt($("#todoQuad").value, 10) || 2,
-    done: false
-  });
+  const raw = ($("#todoText").value || "").trim();
+  if (!raw) { $("#todoText").focus(); return; }
+  const p = parseTodoInput(raw);
+  const advOpen = $("#todoAdv") && !$("#todoAdv").classList.contains("hidden");
+  let date = p.date || todayStr();
+  let time = p.time || "";
+  let end = p.end || "";
+  let quad = p.quad || 2;
+  if (advOpen) {
+    if ($("#todoDate").value) date = $("#todoDate").value;
+    if ($("#todoTime").value) time = $("#todoTime").value;
+    if ($("#todoEnd").value) end = $("#todoEnd").value;
+    quad = parseInt($("#todoQuad").value, 10) || 2;
+  }
+  Store.data.todos.push({ id: uid(), text: p.text, date, time, end, quad, done: false });
   Store.save();
   $("#todoText").value = "";
-  $("#todoTime").value = "";
-  $("#todoDate").value = todayStr();
-  $("#todoQuad").value = "2";
+  $("#todoTime").value = ""; $("#todoEnd").value = "";
+  $("#todoDate").value = todayStr(); $("#todoQuad").value = "2";
   renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+  const dLabel = date === todayStr() ? "今天" : date.slice(5).replace("-", "/");
+  toast(`已加入 ${dLabel}${time ? " " + time : ""}`);
+}
+
+/* 时间线点空白处：快速建一条当天的待办 */
+function openQuickTodoModal(time) {
+  const html = `
+    <div class="field"><label>要做什么</label>
+      <input id="qtText" class="input" placeholder="例如：复习英语"></div>
+    <div class="field"><label>开始</label>
+      <input id="qtTime" class="input" type="time" value="${esc(time || "")}"></div>
+    <div class="field"><label>结束（可选）</label>
+      <input id="qtEnd" class="input" type="time"></div>
+    <div class="modal-actions"><button class="btn primary" id="qtSave">加进今天</button></div>`;
+  openModal("在 " + esc(time) + " 加待办", html, b => {
+    const inp = $("#qtText", b);
+    setTimeout(() => { try { inp.focus(); } catch (e) {} }, 60);
+    const save = () => {
+      const text = inp.value.trim();
+      if (!text) { inp.focus(); return; }
+      Store.data.todos.push({
+        id: uid(), text, date: todayStr(),
+        time: $("#qtTime", b).value || time,
+        end: $("#qtEnd", b).value || "", quad: 2, done: false
+      });
+      Store.save(); closeModal();
+      renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+      toast("已加进今天");
+    };
+    $("#qtSave", b).addEventListener("click", save);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  });
+}
+
+/* 时间线显示时段 / 密度 */
+function openTimelineSettings() {
+  const st = (Store.data && Store.data.settings) || {};
+  const s0 = isFinite(Number(st.tlStart)) ? Number(st.tlStart) : 6;
+  const e0 = isFinite(Number(st.tlEnd)) ? Number(st.tlEnd) : 24;
+  const dens = st.tlDensity === "compact" ? "compact" : "normal";
+  let optS = "";
+  for (let h = 0; h <= 12; h++) optS += `<option value="${h}"${h === s0 ? " selected" : ""}>${pad2(h)}:00</option>`;
+  let optE = "";
+  for (let h = 12; h <= 24; h++) optE += `<option value="${h}"${h === e0 ? " selected" : ""}>${pad2(h)}:00</option>`;
+  const html = `
+    <p>只影响「时间线」这一页，不会改动已存的待办时间。</p>
+    <div class="field"><label>每天从几点开始显示</label>
+      <select id="tlS" class="input">${optS}</select></div>
+    <div class="field"><label>显示到几点</label>
+      <select id="tlE" class="input">${optE}</select></div>
+    <div class="field"><label>密度</label>
+      <div class="seg" id="tlDens">
+        <button type="button" class="seg-btn ${dens === "normal" ? "active" : ""}" data-d="normal">舒适</button>
+        <button type="button" class="seg-btn ${dens === "compact" ? "active" : ""}" data-d="compact">紧凑</button>
+      </div></div>
+    <div class="modal-actions"><button class="btn primary" id="tlSave">保存</button></div>`;
+  openModal("时间线显示", html, b => {
+    const seg = $("#tlDens", b);
+    seg.addEventListener("click", e => {
+      const btn = e.target.closest(".seg-btn"); if (!btn) return;
+      $$(".seg-btn", seg).forEach(x => x.classList.remove("active"));
+      btn.classList.add("active");
+    });
+    $("#tlSave", b).addEventListener("click", () => {
+      const sv = Number($("#tlS", b).value);
+      let ev = Number($("#tlE", b).value);
+      if (ev <= sv) ev = 24;
+      Store.data.settings.tlStart = sv;
+      Store.data.settings.tlEnd = ev;
+      const act = seg.querySelector(".seg-btn.active");
+      Store.data.settings.tlDensity = act ? act.dataset.d : "normal";
+      Store.save();
+      closeModal();
+      renderTimeline(true);
+      toast("时间线已更新");
+    });
+  });
 }
 
 function toggleTodo(id) {
@@ -834,6 +1039,17 @@ function renderCountdown() {
   // 进入倒计时页时，若日期框为空则默认填今天，降低「加不进去」的摩擦
   const dateEl = $("#cdDate");
   if (dateEl && !dateEl.value) dateEl.value = todayStr();
+
+  // 技能下拉（可选绑定，让倒计时和本周训练联动）
+  const skSel = $("#cdSkill");
+  if (skSel) {
+    const skills = Store.data.skills || [];
+    const keep = skSel.value;
+    skSel.innerHTML = `<option value="">不关联技能</option>` +
+      skills.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+    if (keep && skills.some(s => s.id === keep)) skSel.value = keep;
+  }
+
   const cds = [...(Store.data.countdowns || [])].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
   const hint = $("#cdHint");
   if (hint) hint.textContent = cds.length ? `共 ${cds.length} 个` : "";
@@ -843,10 +1059,13 @@ function renderCountdown() {
   }
   list.innerHTML = cds.map(c => {
     const left = daysLeft(c.date);
+    const sk = c.skillId ? Store.data.skills.find(s => s.id === c.skillId) : null;
+    const skLine = sk ? `<div class="cd-link">🎯 ${esc(sk.name)} · 本周练 ${trainWeekCount(sk)} 次 · 掌握 ${sk.progress || 0}%</div>` : "";
     return `<div class="cd-card" data-id="${c.id}">
       <div class="cd-info">
         <div class="cd-name">${esc(c.name)}</div>
         <div class="cd-date">${c.date.slice(5).replace("-", "/")}</div>
+        ${skLine}
       </div>
       <div class="cd-num ${left < 0 ? "past" : ""}">${left >= 0 ? left : "—"}</div>
       <div class="cd-unit">${left >= 0 ? "天" : "已过期"}</div>
@@ -869,7 +1088,9 @@ function addCountdown() {
   }
   try {
     if (!Array.isArray(Store.data.countdowns)) Store.data.countdowns = [];
-    Store.data.countdowns.push({ id: uid(), name, date });
+    const skEl = $("#cdSkill");
+    const skillId = skEl ? skEl.value : "";
+    Store.data.countdowns.push({ id: uid(), name, date, skillId });
     // 先渲染，再保存；保存（含云同步）即使失败也不影响界面更新
     renderCountdown(); renderHome();
     try { Store.save(); } catch (e) { console.warn("[addCountdown] save 失败:", e); }
@@ -878,6 +1099,8 @@ function addCountdown() {
   }
   nameEl.value = "";
   dateEl.value = "";
+  const skClear = $("#cdSkill");
+  if (skClear) skClear.value = "";
 }
 
 function deleteCountdown(id) {
@@ -894,8 +1117,12 @@ function renderSkills() {
   const skills = Store.data.skills;
   const wtId = getWeeklyTheme().skill ? getWeeklyTheme().skill.id : null;
 
-  grid.innerHTML = skills.map(s => `
-    <div class="skill-card ${s.id === wtId ? "is-week-theme" : ""}" data-id="${s.id}">
+  grid.innerHTML = skills.map(s => {
+    const td = trainTodayCount(s);
+    const tw = trainWeekCount(s);
+    const tgt = Number(s.target) || 100;
+    return `
+    <div class="skill-card ${s.id === wtId ? "is-week-theme" : ""}" data-id="${s.id}" draggable="true">
       <div class="sc-head">
         <span class="sc-icon">${esc(s.icon || "⭐")}</span>
         <span class="sc-name" data-act="rename" title="点击重命名">${esc(s.name)}</span>
@@ -904,19 +1131,27 @@ function renderSkills() {
         <button class="icon-btn" data-act="del" title="删除技能">✕</button>
       </div>
 
-      <div class="progress" data-act="progress" title="拖动或点击设定进度">
+      <div class="sc-train-row">
+        <button class="train-btn" data-act="train" title="今天练了一次，进度 +1">＋ 今日训练</button>
+        <span class="sc-train-meta">今日 ${td} 次 · 本周 ${tw} 次 · 目标 ${tgt}</span>
+      </div>
+
+      <div class="progress" data-act="progress" title="拖动可校准进度">
         <div class="fill" style="width:${s.progress}%"></div>
       </div>
 
-      <div class="method-label">训练方法</div>
-      <textarea class="method" data-act="method" placeholder="写下你的训练方法…">${esc(s.method || "")}</textarea>
+      <details class="method-details">
+        <summary>训练方法</summary>
+        <textarea class="method" data-act="method" placeholder="写下你的训练方法…">${esc(s.method || "")}</textarea>
+      </details>
 
       <div class="sc-links">
         <a class="link-btn bili" href="${esc((s.links && s.links.bili) || "#")}" target="_blank" rel="noopener">▶ B站</a>
         <a class="link-btn dy" href="${esc((s.links && s.links.dy) || "#")}" target="_blank" rel="noopener">▶ 抖音</a>
         <button class="link-btn set" data-act="link">✎ 链接</button>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   bindSkillEvents();
 }
@@ -958,25 +1193,46 @@ function bindSkillEvents() {
       Store.save();
     });
 
-    /* 按钮：重命名 / 删除 / 链接 */
+    /* 按钮：训练 / 重命名 / 删除 / 链接 */
     card.addEventListener("click", e => {
       const btn = e.target.closest("[data-act]");
       if (!btn) return;
       const act = btn.dataset.act;
-      if (act === "rename") {
-        const name = prompt("技能名称", skill.name);
-        if (name && name.trim()) {
-          skill.name = name.trim();
-          Store.save(); renderSkills();
-        }
+      if (act === "train") {
+        trainSkill(skill.id);
+      } else if (act === "rename") {
+        openRenameSkill(skill.id);
       } else if (act === "del") {
         if (confirm(`删除技能「${skill.name}」？`)) {
           Store.data.skills = Store.data.skills.filter(x => x.id !== skill.id);
-          Store.save(); renderSkills();
+          Store.save(); renderSkills(); renderHome();
         }
       } else if (act === "link") {
         openLinkModal(skill.id);
       }
+    });
+
+    /* 拖拽排序 */
+    card.addEventListener("dragstart", e => {
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", skill.id); } catch (err) {}
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag-over"); });
+    card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
+    card.addEventListener("drop", e => {
+      e.preventDefault();
+      card.classList.remove("drag-over");
+      const fromId = e.dataTransfer.getData("text/plain");
+      if (!fromId || fromId === skill.id) return;
+      const arr = Store.data.skills;
+      const from = arr.findIndex(x => x.id === fromId);
+      const to = arr.findIndex(x => x.id === skill.id);
+      if (from < 0 || to < 0) return;
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      Store.save(); renderSkills(); renderHome();
     });
   });
 }
@@ -1031,6 +1287,34 @@ function openAddSkill() {
       renderSkills();
       closeModal();
     });
+  });
+}
+
+function openRenameSkill(id) {
+  const s = Store.data.skills.find(x => x.id === id);
+  if (!s) return;
+  const html = `
+    <div class="field"><label>技能名称</label>
+      <input id="rnName" class="input" value="${esc(s.name)}"></div>
+    <div class="field"><label>图标（emoji）</label>
+      <input id="rnIcon" class="input" value="${esc(s.icon || "⭐")}" maxlength="4"></div>
+    <div class="field"><label>总训练次数目标（决定每次训练推进多少进度）</label>
+      <input id="rnTarget" type="number" min="1" max="999" class="input" value="${Number(s.target) || 100}"></div>
+    <div class="modal-actions"><button class="btn primary" id="rnSave">保存</button></div>`;
+  openModal("编辑技能", html, b => {
+    const inp = $("#rnName", b);
+    setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) {} }, 60);
+    const save = () => {
+      const v = inp.value.trim();
+      if (!v) { inp.focus(); return; }
+      s.name = v;
+      s.icon = ($("#rnIcon", b).value.trim() || "⭐");
+      const t = parseInt($("#rnTarget", b).value, 10);
+      s.target = (isNaN(t) || t < 1) ? 100 : Math.min(999, t);
+      Store.save(); renderSkills(); renderHome(); closeModal();
+    };
+    $("#rnSave", b).addEventListener("click", save);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
   });
 }
 
@@ -1121,6 +1405,7 @@ function renderCheckin() {
             <span class="habit-streak">🔥 连续 ${streak} 天</span>
             <span class="habit-prog ${progClass}">${progText}</span>
             <span class="habit-freq">${habitFreqText(h)}</span>
+            ${h.skillId && Store.data.skills.some(s => s.id === h.skillId) ? `<span class="habit-link-skill">🎯 ${esc(Store.data.skills.find(s => s.id === h.skillId).name)}</span>` : ""}
           </div>
           <div class="habit-days" title="点某天圆点可补卡 / 取消">
             ${days.map(d => `<div class="hd ${d.on ? "on" : ""} ${d.isToday ? "today" : ""}" data-act="day" data-date="${d.date}"></div>`).join("")}
@@ -1146,9 +1431,12 @@ function toggleHabit(id) {
   if (!h) return;
   const today = todayStr();
   if (h.history[today]) delete h.history[today];
-  else h.history[today] = true;
+  else {
+    h.history[today] = true;
+    if (h.skillId) trainSkill(h.skillId, { silent: true });
+  }
   Store.save();
-  renderCheckin();
+  renderCheckin(); renderHome();
 }
 
 /* 补卡 / 取消某一天（点击 7 天圆点） */
@@ -1220,6 +1508,13 @@ function editHabit(id) {
       <label>目标次数（每周期）</label>
       <input id="hbTarget" type="number" min="1" max="21" class="input" value="${h.target}" />
     </div>
+    <div class="field">
+      <label>关联技能（打卡时自动 +1 训练）</label>
+      <select id="hbSkill" class="input">
+        <option value="">不关联</option>
+        ${(Store.data.skills || []).map(s => `<option value="${s.id}" ${h.skillId === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn ghost" id="hbCancel">取消</button>
       <button class="btn primary" id="hbSave">保存</button>
@@ -1246,8 +1541,9 @@ function editHabit(id) {
       h.freq = freq;
       h.days = freq === "weekly" ? (days.length ? days : [1, 2, 3, 4, 5, 6, 7]) : [1, 2, 3, 4, 5, 6, 7];
       h.target = target;
+      h.skillId = $("#hbSkill", body).value;
       Store.save();
-      renderCheckin();
+      renderCheckin(); renderHome();
       closeModal();
     });
   });
@@ -1627,16 +1923,17 @@ function normalizeData(obj) {
   obj = obj || {};
   const cur = (Store.data && typeof Store.data === "object") ? Store.data : null;
   const arr = (v, fb) => Array.isArray(v) ? v : (Array.isArray(fb) ? fb : []);
-  return {
+  const out = {
     version: 2,
     updatedAt: obj.updatedAt || (cur && cur.updatedAt) || Date.now(),
-    settings: Object.assign({ termStart: "" }, (cur && cur.settings) || {}, obj.settings || {}),
+    settings: Object.assign(JSON.parse(JSON.stringify(DEFAULT_DATA.settings)), (cur && cur.settings) || {}, obj.settings || {}),
     courses: arr(obj.courses, cur && cur.courses),
     todos: arr(obj.todos, cur && cur.todos),
     skills: arr(obj.skills, cur && cur.skills),
     habits: arr(obj.habits, cur && cur.habits),
     countdowns: arr(obj.countdowns, cur && cur.countdowns)
   };
+  return fillItemDefaults(out);
 }
 
 function applyRemoteData(obj) {
@@ -1789,6 +2086,8 @@ function openWeekThemeModal() {
       <select id="wtSkill" class="input">${opts || '<option value="">（请先去「技能」加一张卡）</option>'}</select></div>
     <div class="field"><label>本周目标（可选）</label>
       <input id="wtGoal" class="input" placeholder="例如：跑通 I2C 中断" value="${esc(wt.goal || "")}"></div>
+    <div class="field"><label>本周训练目标次数</label>
+      <input id="wtTarget" type="number" min="1" max="50" class="input" value="${wt.target || 5}"></div>
     <div class="modal-actions">
       <button class="btn primary" id="wtSave">保存本周主题</button>
       <button class="btn ghost" id="wtReset">恢复自动轮转</button>
@@ -1797,8 +2096,9 @@ function openWeekThemeModal() {
     $("#wtSave", b).addEventListener("click", () => {
       const sid = $("#wtSkill", b).value;
       const goal = $("#wtGoal", b).value.trim();
+      const target = Math.max(1, Math.min(50, parseInt($("#wtTarget", b).value, 10) || 5));
       Store.data.settings.weekThemes = Store.data.settings.weekThemes || {};
-      if (sid) Store.data.settings.weekThemes[wno] = { skillId: sid, goal };
+      if (sid) Store.data.settings.weekThemes[wno] = { skillId: sid, goal, target };
       else delete Store.data.settings.weekThemes[wno];
       Store.save();
       renderHome(); renderSkills(); closeModal();
@@ -1941,6 +2241,113 @@ function importJSON(file) {
 }
 
 /* =========================================================
+   训练系统：技能训练记录 / 周统计 / 一键打卡 / 首页聚合条
+   ========================================================= */
+function habitDueToday(h) {
+  if (!h) return false;
+  const days = (h.days && h.days.length) ? h.days : [1, 2, 3, 4, 5, 6, 7];
+  if (h.freq === "weekly") return days.indexOf(todayWeekday()) >= 0;
+  return true;
+}
+function trainTodayCount(skill) {
+  if (!skill || !skill.trainLog) return 0;
+  return Number(skill.trainLog[todayStr()]) || 0;
+}
+function trainWeekCount(skill) {
+  if (!skill || !skill.trainLog) return 0;
+  const start = dateStr(mondayOf(new Date()));
+  const end = todayStr();
+  let n = 0;
+  for (const k in skill.trainLog) {
+    if (k >= start && k <= end) n += Number(skill.trainLog[k]) || 0;
+  }
+  return n;
+}
+function trainSkill(id, opts) {
+  const s = Store.data.skills.find(x => x.id === id);
+  if (!s) return false;
+  s.trainLog = s.trainLog || {};
+  s.target = Number(s.target) || 100;
+  const today = todayStr();
+  s.trainLog[today] = (Number(s.trainLog[today]) || 0) + 1;
+  const step = Math.max(1, Math.round(100 / s.target));
+  s.progress = Math.min(100, (Number(s.progress) || 0) + step);
+  Store.save();
+  renderSkills(); renderHome(); renderCheckin();
+  if (!(opts && opts.silent)) toast(`「${s.name}」+1 · 进度 ${s.progress}%`);
+  return true;
+}
+function planTrainTodo(skill) {
+  if (!skill) return;
+  const text = `练「${skill.name}」30 分钟`;
+  const exist = Store.data.todos.find(t => t.date === todayStr() && t.text === text && !t.done);
+  if (exist) { toast("今天已经有这条训练待办了"); switchView("todo"); return; }
+  Store.data.todos.push({ id: uid(), text, date: todayStr(), time: "", end: "", quad: 1, done: false, src: "week-theme" });
+  Store.save();
+  renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+  toast("已生成今日训练待办");
+}
+function oneTapCheckin() {
+  const today = todayStr();
+  const list = (Store.data.habits || []).filter(h => habitDueToday(h) && !(h.history && h.history[today]));
+  if (!list.length) { toast("今天该打的卡都打完了 🎉"); switchView("checkin"); return; }
+  if (!confirm(`一键打卡：把今天还没打的 ${list.length} 个习惯都打上？`)) return;
+  list.forEach(h => {
+    h.history = h.history || {};
+    h.history[today] = true;
+    if (h.skillId) {
+      const s = Store.data.skills.find(x => x.id === h.skillId);
+      if (s) {
+        s.trainLog = s.trainLog || {};
+        s.trainLog[today] = (Number(s.trainLog[today]) || 0) + 1;
+        const tgt = Number(s.target) || 100;
+        s.progress = Math.min(100, (Number(s.progress) || 0) + Math.max(1, Math.round(100 / tgt)));
+      }
+    }
+  });
+  Store.save();
+  renderCheckin(); renderHome(); renderSkills();
+  toast(`已打卡 ${list.length} 项`);
+}
+function renderQuick() {
+  const el = $("#homeQuick");
+  if (!el) return;
+  const today = todayStr();
+  const habits = Store.data.habits || [];
+  const dueH = habits.filter(h => habitDueToday(h));
+  const doneH = dueH.filter(h => h.history && h.history[today]).length;
+  const pendingH = dueH.length - doneH;
+  const todoPending = (Store.data.todos || []).filter(t => !t.done && t.date === today).length;
+  const overdue = (Store.data.todos || []).filter(t => !t.done && t.date && t.date < today).length;
+  const wt = getWeeklyTheme();
+  const wkDone = wt.skill ? trainWeekCount(wt.skill) : 0;
+  const wkTarget = wt.target || 5;
+
+  el.innerHTML = `
+    <button class="qk qk-check" data-qk="checkin" type="button">
+      <span class="qk-ico">✅</span>
+      <span class="qk-body">
+        <span class="qk-main">今日打卡 <b>${doneH}/${dueH.length}</b></span>
+        <span class="qk-sub">${pendingH ? `还差 ${pendingH} 项 · 点我全打` : "已完成"}</span>
+      </span>
+    </button>
+    <button class="qk qk-todo" data-qk="todo" type="button">
+      <span class="qk-ico">📝</span>
+      <span class="qk-body">
+        <span class="qk-main">今日待办 <b>${todoPending} 项</b></span>
+        <span class="qk-sub">${overdue ? `含逾期 ${overdue} 项 · 去处理` : "去处理"}</span>
+      </span>
+    </button>
+    <button class="qk qk-train" data-qk="train" type="button">
+      <span class="qk-ico">🎯</span>
+      <span class="qk-body">
+        <span class="qk-main">${wt.skill ? "练「" + esc(wt.skill.name) + "」" : "本周主题"}</span>
+        <span class="qk-sub">${wt.skill ? `本周 ${wkDone}/${wkTarget} 次 · 点我 +1` : "去技能页设置"}</span>
+      </span>
+    </button>`;
+}
+
+/* =========================================================
    首页总览（聚合今日待办 / 课程 / 打卡 / 技能）
    ========================================================= */
 function renderHome() {
@@ -1948,21 +2355,28 @@ function renderHome() {
   const elHabits = $("#homeHabits"), elSkills = $("#homeSkills");
   if (!elStats) return;
 
+  renderQuick();
+
   const now = new Date();
   const day = todayWeekday();
   const wno = todayWeekNo();
   const today = todayStr();
 
-  // 今日待办
-  const todos = Store.data.todos.filter(t => t.date === today);
-  const todoDone = todos.filter(t => t.done).length;
+  // 今日待办 + 逾期未完成（逾期并入，避免「写完就忘」）
+  const todayT = Store.data.todos.filter(t => t.date === today);
+  const overdueT = Store.data.todos
+    .filter(t => !t.done && t.date && t.date < today)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const todos = [...overdueT, ...todayT];
+  const todoDone = todayT.filter(t => t.done).length;
   // 今日课程（按周次过滤）
   const courses = Store.data.courses
     .filter(c => c.day === day && inWeek(c, wno))
     .sort((a, b) => hhmmToMin(a.start) - hhmmToMin(b.start));
-  // 打卡
+  // 打卡（只统计今天该打的）
   const habits = Store.data.habits;
-  const todayChecked = habits.filter(x => x.history && x.history[today]).length;
+  const dueHabits = habits.filter(habitDueToday);
+  const todayChecked = dueHabits.filter(x => x.history && x.history[today]).length;
   // 技能平均进度
   const skills = Store.data.skills;
   const avg = skills.length ? Math.round(skills.reduce((s, k) => s + (k.progress || 0), 0) / skills.length) : 0;
@@ -2020,6 +2434,8 @@ function renderHome() {
     if (!wt.skill) {
       elWT.innerHTML = `<div class="wt-empty">🎯 周主题：先去「技能」加一张技能卡，每周会自动聚焦一个来学</div>`;
     } else {
+      const wkDone = trainWeekCount(wt.skill);
+      const wkTarget = wt.target || 5;
       elWT.innerHTML = `
         <div class="wt-card">
           <div class="wt-head">
@@ -2030,12 +2446,21 @@ function renderHome() {
             <span class="wt-icon">${esc(wt.skill.icon || "⭐")}</span>
             <div class="wt-info">
               <div class="wt-name">${esc(wt.skill.name)}</div>
-              <div class="wt-goal">${wt.goal ? "本周目标：" + esc(wt.goal) : "本周聚焦这个技能，去技能页更新进度"}</div>
+              <div class="wt-goal">${wt.goal ? "本周目标：" + esc(wt.goal) : "本周聚焦这个技能"}</div>
+              <div class="wt-train">本周已练 <b>${wkDone}/${wkTarget}</b> 次 · 掌握度 ${wt.skill.progress || 0}%</div>
             </div>
             <div class="wt-prog"><div class="wt-ring" style="--p:${Math.min(100, wt.skill.progress || 0)}"><span>${wt.skill.progress || 0}%</span></div></div>
           </div>
-          <button class="btn primary wt-go" data-view="skills">去训练 →</button>
+          <div class="wt-actions">
+            <button class="btn primary" data-train="${wt.skill.id}">＋ 练一次</button>
+            <button class="btn ghost" data-plan="${wt.skill.id}">生成今日训练待办</button>
+            <button class="btn ghost" data-view="skills">技能页 →</button>
+          </div>
         </div>`;
+      const tr = elWT.querySelector("[data-train]");
+      if (tr) tr.addEventListener("click", () => { trainSkill(tr.dataset.train); });
+      const pl = elWT.querySelector("[data-plan]");
+      if (pl) pl.addEventListener("click", () => planTrainTodo(wt.skill));
       const go = elWT.querySelector("[data-view]");
       if (go) go.addEventListener("click", () => switchView("skills"));
     }
@@ -2048,9 +2473,9 @@ function renderHome() {
     skill: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9.5M9.3 19V5M14.6 19v-7.5M20 19v-4.5"/><path d="M3 21h18"/></svg>`
   };
   const stats = [
-    { c: "blue", icon: I.todo, label: "今日待办", value: `${todoDone}/${todos.length}`, sub: todos.length ? (todoDone === todos.length ? "全部完成 🎉" : "进行中") : "暂无" },
+    { c: "blue", icon: I.todo, label: "今日待办", value: `${todoDone}/${todayT.length}`, sub: overdueT.length ? `逾期 ${overdueT.length} 项` : (todayT.length ? (todoDone === todayT.length ? "全部完成 🎉" : "进行中") : "暂无") },
     { c: "green", icon: I.course, label: "今日课程", value: `${courses.length} 门`, sub: courses.length ? courses[0].name : "今天没课" },
-    { c: "orange", icon: I.checkin, label: "今日打卡", value: `${todayChecked}/${habits.length}`, sub: habits.length ? (todayChecked === habits.length ? "已全打卡" : "待打卡") : "暂无习惯" },
+    { c: "orange", icon: I.checkin, label: "今日打卡", value: `${todayChecked}/${dueHabits.length}`, sub: dueHabits.length ? (todayChecked === dueHabits.length ? "已全打卡" : "待打卡") : "今天不用打卡" },
     { c: "purple", icon: I.skill, label: "技能进度", value: `${avg}%`, sub: skills.length ? `共 ${skills.length} 项` : "暂无" }
   ];
   elStats.innerHTML = stats.map(s => `
@@ -2063,15 +2488,17 @@ function renderHome() {
       </div>
     </div>`).join("");
 
-  // 今日待办
+  // 今日待办（逾期置顶并标红）
   if (!todos.length) elTodo.innerHTML = `<div class="empty-hint">今天还没有待办</div>`;
-  else elTodo.innerHTML = todos.slice(0, 6).map(t => `
-    <div class="home-todo-item ${t.done ? "done" : ""}">
+  else elTodo.innerHTML = todos.slice(0, 8).map(t => {
+    const od = !t.done && t.date && t.date < today;
+    return `
+    <div class="home-todo-item ${t.done ? "done" : ""} ${od ? "overdue" : ""}" data-id="${t.id}">
       <span class="ht-check ${t.done ? "on" : ""}">${t.done ? "✓" : ""}</span>
       <span class="ht-text">${esc(t.text)}</span>
-      <span class="ht-tag ${quadOf(t).cls}">${quadOf(t).name}</span>
+      ${od ? `<span class="ht-od">逾期</span>` : `<span class="ht-tag ${quadOf(t).cls}">${quadOf(t).name}</span>`}
       ${t.time ? `<span class="ht-time">${t.time}</span>` : ""}
-    </div>`).join("");
+    </div>`; }).join("");
 
   // 今日课程
   if (!courses.length) elCourses.innerHTML = `<div class="empty-hint">今天没有课程</div>`;
@@ -2091,9 +2518,11 @@ function renderHome() {
   if (!habits.length) elHabits.innerHTML = `<div class="empty-hint">还没有习惯</div>`;
   else elHabits.innerHTML = habits.map(x => {
     const done = !!(x.history && x.history[today]);
-    return `<div class="home-habit ${done ? "done" : ""}" data-id="${x.id}">
+    const due = habitDueToday(x);
+    const sk = x.skillId ? Store.data.skills.find(s => s.id === x.skillId) : null;
+    return `<div class="home-habit ${done ? "done" : ""} ${due ? "" : "offday"}" data-id="${x.id}">
       <button class="hh-check ${done ? "on" : ""}" data-act="home-toggle" title="今日打卡">✓</button>
-      <span class="hh-name">${esc(x.name)}</span>
+      <span class="hh-name">${esc(x.name)}${sk ? `<span class="hh-link">→ ${esc(sk.name)}</span>` : ""}</span>
       <span class="hh-streak">🔥${calcStreak(x.history)}</span>
     </div>`;
   }).join("");
@@ -2396,6 +2825,15 @@ function init() {
     Theme.setImage(skinParam);
   }
   Theme.apply();
+
+  /* 跟随系统：系统亮/暗切换时实时更新 */
+  if (window.matchMedia) {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onScheme = () => { if (Theme.stored === "auto") Theme.apply(); };
+    if (mq.addEventListener) mq.addEventListener("change", onScheme);
+    else if (mq.addListener) mq.addListener(onScheme);
+  }
+
   renderAll(true);
 
   /* 支持 ?view=skills 之类直接打开某视图 */
@@ -2423,6 +2861,20 @@ function init() {
   /* 待办 */
   $("#todoAdd").addEventListener("click", addTodo);
   $("#todoText").addEventListener("keydown", e => { if (e.key === "Enter") addTodo(); });
+  const todoMore = $("#todoMore");
+  if (todoMore) todoMore.addEventListener("click", () => {
+    const adv = $("#todoAdv");
+    if (!adv) return;
+    adv.classList.toggle("hidden");
+    const open = !adv.classList.contains("hidden");
+    todoMore.classList.toggle("on", open);
+    if (open) {
+      const dEl = $("#todoDate");
+      if (dEl && !dEl.value) dEl.value = todayStr();
+      const t = $("#todoText");
+      if (t) t.focus();
+    }
+  });
   const todoDateEl = $("#todoDate");
   if (todoDateEl) todoDateEl.value = todayStr();
   function bindTodoClicks(rootSel, itemSel) {
@@ -2490,6 +2942,43 @@ function init() {
     toggleHabit(id);
     renderHome();
   });
+
+  /* 首页：一键聚合条 */
+  const quickBar = $("#homeQuick");
+  if (quickBar) quickBar.addEventListener("click", e => {
+    const btn = e.target.closest("[data-qk]");
+    if (!btn) return;
+    const k = btn.dataset.qk;
+    if (k === "checkin") oneTapCheckin();
+    else if (k === "todo") switchView("todo");
+    else if (k === "train") {
+      const wt = getWeeklyTheme();
+      if (wt.skill) trainSkill(wt.skill.id);
+      else switchView("skills");
+    }
+  });
+
+  /* 首页：点待办即可完成 */
+  const homeTodoEl = $("#homeTodo");
+  if (homeTodoEl) homeTodoEl.addEventListener("click", e => {
+    const row = e.target.closest(".home-todo-item");
+    if (!row) return;
+    if (row.dataset.id) toggleTodo(row.dataset.id);
+  });
+
+  /* 时间线：点空白处建待办 / 打开显示设置 */
+  const tlCanvas = $("#tlCanvas");
+  if (tlCanvas) tlCanvas.addEventListener("click", e => {
+    if (e.target.closest(".tl-block")) return;
+    const rect = tlCanvas.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    let min = TL_START + (y / PX_PER_HOUR) * 60;
+    min = Math.round(min / 5) * 5;
+    if (min < TL_START || min > TL_END) return;
+    openQuickTodoModal(minToHHMM(min));
+  });
+  const tlSetBtn = $("#tlSetting");
+  if (tlSetBtn) tlSetBtn.addEventListener("click", openTimelineSettings);
 
   /* 周课表：整周适配 / 全屏 */
   const fullBtn = $("#wkFull");
