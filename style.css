@@ -1154,6 +1154,9 @@ input, textarea, select { font-family: inherit; }
 .day-divider::after { content: ""; height: 1px; flex: 1; background: var(--border); }
 .day-divider .dd-label { color: var(--text-2); }
 .day-divider .dd-count { color: var(--muted); font-weight: 500; font-size: 12px; }
+/* 过期（之前的）待办分割线：温和置灰，与当日/未来区分 */
+.day-divider.past .dd-label { color: var(--muted); }
+.day-divider.past::after { background: var(--border); opacity: .5; }
 
 /* ============ 技能卡：本周主题角标 ============ */
 .sc-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green); border: 1px solid var(--green-line); }

@@ -738,11 +738,17 @@ function renderTodo() {
   // 按天分组：同一天的待办归到一条分割线下面
   const groups = {};
   all.forEach(t => { const k = t.date || "未排期"; (groups[k] = groups[k] || []).push(t); });
-  const keys = Object.keys(groups).sort((a, b) => {
-    const av = a === "未排期" ? "9999-99-99" : a;
-    const bv = b === "未排期" ? "9999-99-99" : b;
-    return av < bv ? -1 : av > bv ? 1 : 0;
-  });
+
+  // 排序权重：今天(0) → 未来按近到远(1,2,3…) → 过期沉底(1000+，最近的过期更靠上) → 未排期垫底
+  const tStr = todayStr();
+  const weight = (k) => {
+    if (k === "未排期" || !/^\d{4}-\d{2}-\d{2}$/.test(k)) return 1e9;
+    if (k === tStr) return 0;
+    const diff = Math.round((new Date(tStr + "T00:00:00") - new Date(k + "T00:00:00")) / 864e5);
+    if (diff > 0) return 1000 + diff; // 过期：沉底，越久越远越靠下
+    return 1 - diff;                   // 未来：最近的未来最靠上
+  };
+  const keys = Object.keys(groups).sort((a, b) => weight(a) - weight(b));
 
   const html = [];
   for (const k of keys) {
@@ -753,7 +759,8 @@ function renderTodo() {
       const at = a.time ? hhmmToMin(a.time) : 9999, bt = b.time ? hhmmToMin(b.time) : 9999;
       return at - bt;
     });
-    html.push(`<div class="day-divider" data-date="${esc(k)}"><span class="dd-label">${dayLabel(k)}</span><span class="dd-count">${items.length} 项</span></div>`);
+    const isPast = k !== "未排期" && k < tStr;
+    html.push(`<div class="day-divider${isPast ? " past" : ""}" data-date="${esc(k)}"><span class="dd-label">${dayLabel(k)}${isPast ? " · 之前" : ""}</span><span class="dd-count">${items.length} 项</span></div>`);
     items.forEach(t => html.push(todoItemHTML(t)));
   }
   list.innerHTML = html.join("");
