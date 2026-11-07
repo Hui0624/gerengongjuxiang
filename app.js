@@ -452,6 +452,31 @@ function todayWeekNo() {
   return Math.round((mondayOf(new Date()) - start) / 6048e5) + 1;
 }
 
+/* 周主题：当前周号（开学周优先，否则用年内 ISO 周，保证没设 termStart 也能轮转） */
+function isoWeekNo(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = dt.getUTCDay() || 7;
+  dt.setUTCDate(dt.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  return Math.ceil((((dt - yearStart) / 864e5) + 1) / 7);
+}
+function currentWeekNo() {
+  return todayWeekNo() || isoWeekNo(new Date());
+}
+function getWeeklyTheme() {
+  const wno = currentWeekNo();
+  const skills = (Store.data && Store.data.skills) || [];
+  if (!skills.length) return { weekNo: wno, skill: null, goal: "", isOverride: false };
+  const wt = (Store.data.settings && Store.data.settings.weekThemes) || {};
+  const ov = wt[wno] || null;
+  if (ov && ov.skillId) {
+    const s = skills.find(x => x.id === ov.skillId);
+    if (s) return { weekNo: wno, skill: s, goal: ov.goal || "", isOverride: true };
+  }
+  const idx = ((wno - 1) % skills.length + skills.length) % skills.length;
+  return { weekNo: wno, skill: skills[idx], goal: "", isOverride: false };
+}
+
 /* 正方周次写法很杂："2周,5-6周,10周,13-17周(单),18周"
    单/双只作用于它所在的那一段，所以逐段解析 */
 function parseWeeks(str) {
@@ -667,6 +692,32 @@ function fmtDateShort(d) {
   return `${m}月${day}日`;
 }
 
+function dayLabel(d) {
+  if (!d || d === "未排期") return "未排期";
+  if (d === todayStr()) return "今天";
+  const t = new Date(); t.setDate(t.getDate() + 1);
+  const tom = `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+  if (d === tom) return "明天";
+  const dt = new Date(d + "T00:00:00");
+  if (isNaN(dt)) return d;
+  return `${d.slice(5).replace("-", "/")} ${weekdayName(dt.getDay() === 0 ? 7 : dt.getDay())}`;
+}
+function todoItemHTML(t) {
+  const q = quadOf(t);
+  return `<div class="todo-item ${t.done ? "done" : ""}" data-id="${t.id}">
+    <button class="check" data-act="toggle" title="标记完成">✓</button>
+    <div class="ti-body">
+      <div class="ti-text">${esc(t.text)}</div>
+      <div class="ti-tags">
+        <span class="ti-tag ${q.cls}">${q.name}</span>
+        ${t.date ? `<span class="ti-date">📅 ${fmtDateShort(t.date)}</span>` : ""}
+        ${t.time ? `<span class="ti-time">⏰ ${t.time}</span>` : ""}
+      </div>
+    </div>
+    <button class="ti-del" data-act="del" title="删除">✕</button>
+  </div>`;
+}
+
 function renderTodo() {
   const list = $("#todoList"), quadView = $("#todoQuadView");
   if (todoMode === "quad") {
@@ -678,35 +729,34 @@ function renderTodo() {
   list.classList.remove("hidden");
   quadView.classList.add("hidden");
 
-  const arr = [...Store.data.todos].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    const qa = a.quad || 2, qb = b.quad || 2;
-    if (qa !== qb) return qa - qb;
-    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-    const at = a.time ? hhmmToMin(a.time) : 9999, bt = b.time ? hhmmToMin(b.time) : 9999;
-    return at - bt;
-  });
-
-  if (!arr.length) {
+  const all = Store.data.todos;
+  if (!all.length) {
     list.innerHTML = `<div class="empty-hint">还没有待办，在上面加一条吧</div>`;
     return;
   }
 
-  list.innerHTML = arr.map(t => {
-    const q = quadOf(t);
-    return `<div class="todo-item ${t.done ? "done" : ""}" data-id="${t.id}">
-      <button class="check" data-act="toggle" title="标记完成">✓</button>
-      <div class="ti-body">
-        <div class="ti-text">${esc(t.text)}</div>
-        <div class="ti-tags">
-          <span class="ti-tag ${q.cls}">${q.name}</span>
-          ${t.date ? `<span class="ti-date">📅 ${fmtDateShort(t.date)}</span>` : ""}
-          ${t.time ? `<span class="ti-time">⏰ ${t.time}</span>` : ""}
-        </div>
-      </div>
-      <button class="ti-del" data-act="del" title="删除">✕</button>
-    </div>`;
-  }).join("");
+  // 按天分组：同一天的待办归到一条分割线下面
+  const groups = {};
+  all.forEach(t => { const k = t.date || "未排期"; (groups[k] = groups[k] || []).push(t); });
+  const keys = Object.keys(groups).sort((a, b) => {
+    const av = a === "未排期" ? "9999-99-99" : a;
+    const bv = b === "未排期" ? "9999-99-99" : b;
+    return av < bv ? -1 : av > bv ? 1 : 0;
+  });
+
+  const html = [];
+  for (const k of keys) {
+    const items = groups[k].slice().sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      const qa = a.quad || 2, qb = b.quad || 2;
+      if (qa !== qb) return qa - qb;
+      const at = a.time ? hhmmToMin(a.time) : 9999, bt = b.time ? hhmmToMin(b.time) : 9999;
+      return at - bt;
+    });
+    html.push(`<div class="day-divider" data-date="${esc(k)}"><span class="dd-label">${dayLabel(k)}</span><span class="dd-count">${items.length} 项</span></div>`);
+    items.forEach(t => html.push(todoItemHTML(t)));
+  }
+  list.innerHTML = html.join("");
 }
 
 function renderTodoQuad() {
@@ -835,12 +885,14 @@ function deleteCountdown(id) {
 function renderSkills() {
   const grid = $("#skillGrid");
   const skills = Store.data.skills;
+  const wtId = getWeeklyTheme().skill ? getWeeklyTheme().skill.id : null;
 
   grid.innerHTML = skills.map(s => `
-    <div class="skill-card" data-id="${s.id}">
+    <div class="skill-card ${s.id === wtId ? "is-week-theme" : ""}" data-id="${s.id}">
       <div class="sc-head">
         <span class="sc-icon">${esc(s.icon || "⭐")}</span>
         <span class="sc-name" data-act="rename" title="点击重命名">${esc(s.name)}</span>
+        ${s.id === wtId ? `<span class="sc-badge">本周主题</span>` : ""}
         <span class="sc-pct">${s.progress}%</span>
         <button class="icon-btn" data-act="del" title="删除技能">✕</button>
       </div>
@@ -1606,6 +1658,10 @@ function openSettings() {
       <input class="input" id="notifyMorning" type="time" value="${esc(Notify.morning)}"></div>
     <div id="notifyMsg" class="sync-msg"></div>
 
+    <h4>周主题</h4>
+    <p>每周自动聚焦一个技能来学；也能给本周指定一个技能 + 一句目标。设置会随云同步，电脑手机一致。</p>
+    <div class="modal-actions"><button class="btn" id="wtOpen">设置本周主题</button></div>
+
     <h4>云同步（GitHub 私有 Gist，免费）</h4>
     <p>填一个 GitHub Token（勾选 gist 权限即可），电脑和手机就能共用同一份数据。<strong>Token 只存在本机浏览器。</strong></p>
     <div class="field"><label>GitHub Token</label>
@@ -1637,6 +1693,8 @@ function openSettings() {
     $("#themeOpen", body).addEventListener("click", openThemeModal);
     const ig = $("#installGuideBtn", body);
     if (ig) ig.addEventListener("click", openInstallGuide);
+    const wtOpen = $("#wtOpen", body);
+    if (wtOpen) wtOpen.addEventListener("click", openWeekThemeModal);
 
     /* 本地提醒开关 */
     const nMsg = $("#notifyMsg", body);
@@ -1708,6 +1766,40 @@ function openSettings() {
         renderAll();
         closeModal();
       }
+    });
+  });
+}
+
+/* 周主题：给本周指定技能 + 目标（覆盖自动轮转） */
+function openWeekThemeModal() {
+  const wno = currentWeekNo();
+  const skills = (Store.data && Store.data.skills) || [];
+  const wt = getWeeklyTheme();
+  const opts = skills.map(s => `<option value="${s.id}" ${wt.skill && s.id === wt.skill.id ? "selected" : ""}>${esc(s.icon || "⭐")} ${esc(s.name)}</option>`).join("");
+  const html = `
+    <p>当前：第 ${wno} 周${wt.isOverride ? "（已自定义，可恢复自动轮转）" : "（自动轮转中）"}</p>
+    <div class="field"><label>本周主题技能</label>
+      <select id="wtSkill" class="input">${opts || '<option value="">（请先去「技能」加一张卡）</option>'}</select></div>
+    <div class="field"><label>本周目标（可选）</label>
+      <input id="wtGoal" class="input" placeholder="例如：跑通 I2C 中断" value="${esc(wt.goal || "")}"></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="wtSave">保存本周主题</button>
+      <button class="btn ghost" id="wtReset">恢复自动轮转</button>
+    </div>`;
+  openModal("设置本周主题", html, b => {
+    $("#wtSave", b).addEventListener("click", () => {
+      const sid = $("#wtSkill", b).value;
+      const goal = $("#wtGoal", b).value.trim();
+      Store.data.settings.weekThemes = Store.data.settings.weekThemes || {};
+      if (sid) Store.data.settings.weekThemes[wno] = { skillId: sid, goal };
+      else delete Store.data.settings.weekThemes[wno];
+      Store.save();
+      renderHome(); renderSkills(); closeModal();
+    });
+    $("#wtReset", b).addEventListener("click", () => {
+      if (Store.data.settings.weekThemes) delete Store.data.settings.weekThemes[wno];
+      Store.save();
+      renderHome(); renderSkills(); closeModal();
     });
   });
 }
@@ -1911,6 +2003,34 @@ function renderHome() {
           <div class="ah-label">今日课程已结束</div>
           ${top ? `<div class="ah-name">现在专注：${esc(top.text)}</div><div class="ah-meta">${quadOf(top).name}${top.time ? " · " + esc(top.time) : ""}</div>` : `<div class="ah-name">今天没有更多安排了 🌿</div><div class="ah-meta">休息一下，或看看技能进度</div>`}
         </div>`;
+    }
+  }
+
+  /* 周主题焦点块：本周自动聚焦一个技能，可自定义 */
+  const elWT = $("#homeWeekTheme");
+  if (elWT) {
+    const wt = getWeeklyTheme();
+    if (!wt.skill) {
+      elWT.innerHTML = `<div class="wt-empty">🎯 周主题：先去「技能」加一张技能卡，每周会自动聚焦一个来学</div>`;
+    } else {
+      elWT.innerHTML = `
+        <div class="wt-card">
+          <div class="wt-head">
+            <span class="wt-badge">🎯 本周主题</span>
+            <span class="wt-week">第 ${wt.weekNo} 周${wt.isOverride ? " · 已自定义" : " · 自动轮转"}</span>
+          </div>
+          <div class="wt-body">
+            <span class="wt-icon">${esc(wt.skill.icon || "⭐")}</span>
+            <div class="wt-info">
+              <div class="wt-name">${esc(wt.skill.name)}</div>
+              <div class="wt-goal">${wt.goal ? "本周目标：" + esc(wt.goal) : "本周聚焦这个技能，去技能页更新进度"}</div>
+            </div>
+            <div class="wt-prog"><div class="wt-ring" style="--p:${Math.min(100, wt.skill.progress || 0)}"><span>${wt.skill.progress || 0}%</span></div></div>
+          </div>
+          <button class="btn primary wt-go" data-view="skills">去训练 →</button>
+        </div>`;
+      const go = elWT.querySelector("[data-view]");
+      if (go) go.addEventListener("click", () => switchView("skills"));
     }
   }
 

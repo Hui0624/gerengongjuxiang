@@ -1124,3 +1124,37 @@ input, textarea, select { font-family: inherit; }
   .install-bar { bottom: 76px; }
   .toast { top: 8px; }
 }
+
+/* ============ 周主题（首页焦点块） ============ */
+.week-theme { margin-top: 14px; }
+.wt-empty { background: var(--panel); border: 1px dashed var(--border-2); border-radius: var(--radius, 18px); padding: 14px 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.wt-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius, 18px);
+  padding: 14px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px;
+}
+.wt-head { display: flex; align-items: center; justify-content: space-between; }
+.wt-badge { font-size: 13px; font-weight: 800; color: var(--green); background: var(--green-soft); border: 1px solid var(--green-line); padding: 3px 10px; border-radius: 999px; }
+.wt-week { font-size: 12px; color: var(--muted); }
+.wt-body { display: flex; align-items: center; gap: 12px; }
+.wt-icon { font-size: 26px; line-height: 1; flex: none; width: 46px; height: 46px; border-radius: 13px; background: var(--green-soft); display: flex; align-items: center; justify-content: center; }
+.wt-info { flex: 1; min-width: 0; }
+.wt-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.wt-goal { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.wt-prog { flex: none; }
+.wt-ring {
+  position: relative; width: 52px; height: 52px; border-radius: 50%; flex: none;
+  background: conic-gradient(var(--green) calc(var(--p, 0) * 1%), var(--green-soft) 0);
+  display: flex; align-items: center; justify-content: center;
+}
+.wt-ring::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--panel); }
+.wt-ring span { position: relative; z-index: 1; font-size: 12px; font-weight: 700; color: var(--green); }
+
+/* ============ 待办：按天分割线 ============ */
+.day-divider { display: flex; align-items: center; gap: 10px; margin: 16px 2px 8px; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+.day-divider::after { content: ""; height: 1px; flex: 1; background: var(--border); }
+.day-divider .dd-label { color: var(--text-2); }
+.day-divider .dd-count { color: var(--muted); font-weight: 500; font-size: 12px; }
+
+/* ============ 技能卡：本周主题角标 ============ */
+.sc-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green); border: 1px solid var(--green-line); }
+.skill-card.is-week-theme { border-color: var(--green-line); box-shadow: 0 0 0 1px var(--green-line), var(--shadow); }

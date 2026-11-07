@@ -40,7 +40,9 @@ const DEFAULT_DATA = {
   version: 2,
   settings: {
     /* 本学期第 1 周的周一，格式 YYYY-MM-DD；留空则周次显示为「第 ? 周」 */
-    termStart: ""
+    termStart: "",
+    /* 周主题：按周号存覆盖项，例如 { "12": { skillId: "s1", goal: "跑通 I2C" } }；留空则该周自动轮转技能 */
+    weekThemes: {}
   },
   courses: [
     { id: "c1", name: "高等数学", day: 1, start: "08:00", end: "09:40", room: "3-201" },
