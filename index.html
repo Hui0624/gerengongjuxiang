@@ -102,6 +102,10 @@
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg></span>
         <span>待办</span>
       </button>
+      <button class="nav-item" data-view="log">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14.8 3.6V7.6H18.8"/><path d="M8.4 12h7M8.4 15.6h4.6"/></svg></span>
+        <span>记录</span>
+      </button>
       <button class="nav-item" data-view="skills">
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9.5M9.3 19V5M14.6 19v-7.5M20 19v-4.5"/><path d="M3 21h18"/></svg></span>
         <span>技能</span>
@@ -225,6 +229,44 @@
         <div id="todoQuadView" class="todo-quad hidden"></div>
       </section>
 
+      <!-- 记录 / 沉淀 -->
+      <section id="view-log" class="view">
+        <div class="log-compose">
+          <div class="lc-row">
+            <input id="logText" class="input lc-input" placeholder="今天搞定了什么？打一行，或者按住 🎤 说" />
+            <button id="logVoice" class="btn lc-voice" type="button" title="按住说话，松开结束"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.6" width="6" height="10.4" rx="3"/><path d="M5.4 11a6.6 6.6 0 0 0 13.2 0"/><path d="M12 17.6V21"/></svg></button>
+            <button id="logAdd" class="btn primary" type="button">记下</button>
+          </div>
+          <div class="lc-tip" id="logTip">说完不用整理，会帮你提炼成「做了什么 · 为什么 · 标签」</div>
+          <div id="lcLive" class="lc-live hidden"></div>
+          <div id="lcPreview" class="lc-preview hidden"></div>
+        </div>
+
+        <div class="section-head">
+          <h2>沉淀</h2>
+          <div class="seg" id="logSeg">
+            <button class="seg-btn active" data-mode="stream">流水</button>
+            <button class="seg-btn" data-mode="review">复盘</button>
+          </div>
+          <span class="hint" id="logHint"></span>
+        </div>
+
+        <div id="logPane">
+          <div class="log-filter" id="logFilter">
+            <button class="lf-btn active" data-ltype="all">全部</button>
+            <button class="lf-btn" data-ltype="win">成果</button>
+            <button class="lf-btn" data-ltype="pit">踩坑</button>
+            <button class="lf-btn" data-ltype="idea">想法</button>
+            <input id="logSearch" class="input lf-search" placeholder="搜关键词 / 标签" />
+          </div>
+          <div id="logStream" class="log-stream"></div>
+        </div>
+
+        <div id="reviewPane" class="hidden">
+          <div id="reviewBox" class="review-box"></div>
+        </div>
+      </section>
+
       <!-- 技能 -->
       <section id="view-skills" class="view">
         <div class="section-head"><h2>日常技能</h2><span class="hint">拖动进度条更新 · 训练方法可随时改</span></div>
@@ -254,6 +296,25 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- 完成待办后的「记一笔」轻浮层 -->
+  <div id="quickLog" class="quick-log hidden">
+    <div class="ql-head">
+      <span class="ql-title">记一笔？</span>
+      <span class="ql-sub" id="qlSub"></span>
+      <button id="qlClose" class="ql-x" type="button" title="跳过">✕</button>
+    </div>
+    <div class="ql-row">
+      <input id="qlText" class="input" placeholder="一句话就行：卡在哪、怎么解的" />
+      <button id="qlVoice" class="btn ql-voice" type="button" title="按住说话，松开结束"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.6" width="6" height="10.4" rx="3"/><path d="M5.4 11a6.6 6.6 0 0 0 13.2 0"/><path d="M12 17.6V21"/></svg></button>
+    </div>
+    <div class="ql-actions">
+      <button class="btn ghost ql-type on" data-type="win" type="button">成果</button>
+      <button class="btn ghost ql-type" data-type="pit" type="button">踩坑</button>
+      <button class="btn ghost ql-type" data-type="idea" type="button">想法</button>
+      <button id="qlSave" class="btn primary" type="button">存下</button>
+    </div>
   </div>
 
   <!-- 通用弹窗 -->

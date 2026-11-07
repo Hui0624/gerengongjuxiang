@@ -1019,9 +1019,12 @@ function openTimelineSettings() {
 function toggleTodo(id) {
   const t = Store.data.todos.find(x => x.id === id);
   if (!t) return;
+  const wasDone = !!t.done;
   t.done = !t.done;
   Store.save();
   renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+  /* 刚完成的那一刻脑子里细节最全，这时问一句「记一笔」命中率最高 */
+  if (!wasDone && t.done) setTimeout(() => showQuickLog(t.text), 240);
 }
 
 function deleteTodo(id) {
@@ -1931,7 +1934,12 @@ function normalizeData(obj) {
     todos: arr(obj.todos, cur && cur.todos),
     skills: arr(obj.skills, cur && cur.skills),
     habits: arr(obj.habits, cur && cur.habits),
-    countdowns: arr(obj.countdowns, cur && cur.countdowns)
+    countdowns: arr(obj.countdowns, cur && cur.countdowns),
+    logs: arr(obj.logs, cur && cur.logs),
+    projects: arr(obj.projects, cur && cur.projects),
+    reviews: (obj.reviews && typeof obj.reviews === "object" && !Array.isArray(obj.reviews))
+      ? obj.reviews
+      : ((cur && cur.reviews) || {})
   };
   return fillItemDefaults(out);
 }
@@ -1961,6 +1969,25 @@ function openSettings() {
     <div class="field"><label>每日晨间提醒时间</label>
       <input class="input" id="notifyMorning" type="time" value="${esc(Notify.morning)}"></div>
     <div id="notifyMsg" class="sync-msg"></div>
+
+    <h4>AI 助手（语音整理）</h4>
+    <p>按住麦克风随便说一段，自动整理成「做了什么 · 为什么 · 标签」。<strong>Key 只存在本机浏览器</strong>，不进云端数据、不上传。你这个仓库是公开的，所以千万别把 Key 写进代码。</p>
+    <div class="field"><label>服务商</label>
+      <select class="input" id="aiPreset">
+        ${AI_PRESETS.map(p => `<option value="${p.id}">${esc(p.name)}${p.note ? " — " + esc(p.note) : ""}</option>`).join("")}
+      </select></div>
+    <div class="field"><label>接口地址</label>
+      <input class="input" id="aiBase" placeholder="https://api.deepseek.com" value="${esc(AICfg.base)}"></div>
+    <div class="field"><label>模型名</label>
+      <input class="input" id="aiModel" value="${esc(AICfg.model)}"></div>
+    <div class="field"><label>API Key</label>
+      <input class="input" id="aiKey" type="password" placeholder="sk-..." value="${esc(AICfg.key)}"></div>
+    <label class="switch-row"><input type="checkbox" id="aiPolishOn" ${AICfg.polish ? "checked" : ""}> 说完自动提炼（关掉则只转文字）</label>
+    <div class="modal-actions">
+      <button class="btn" id="aiTest" type="button">测试连接</button>
+      <button class="btn primary" id="aiSave" type="button">保存</button>
+    </div>
+    <div id="aiMsg" class="sync-msg"></div>
 
     <h4>周主题</h4>
     <p>每周自动聚焦一个技能来学；也能给本周指定一个技能 + 一句目标。设置会随云同步，电脑手机一致。</p>
@@ -1995,6 +2022,55 @@ function openSettings() {
     const msg = $("#ghMsg", body);
 
     $("#themeOpen", body).addEventListener("click", openThemeModal);
+
+    /* AI 配置 */
+    const aiMsg = $("#aiMsg", body);
+    const aiBaseEl = $("#aiBase", body);
+    const aiModelEl = $("#aiModel", body);
+    const aiKeyEl = $("#aiKey", body);
+    const aiPresetEl = $("#aiPreset", body);
+    const aiPolishEl = $("#aiPolishOn", body);
+    const readAI = () => {
+      AICfg.key = aiKeyEl.value.trim();
+      AICfg.base = aiBaseEl.value.trim() || "https://api.deepseek.com";
+      AICfg.model = aiModelEl.value.trim() || "deepseek-chat";
+      AICfg.polish = !!(aiPolishEl && aiPolishEl.checked);
+    };
+    if (aiPresetEl) {
+      const hit = AI_PRESETS.find(p => p.base && AICfg.base.indexOf(p.base) === 0);
+      if (hit) aiPresetEl.value = hit.id;
+      aiPresetEl.addEventListener("change", () => {
+        const p = AI_PRESETS.find(x => x.id === aiPresetEl.value);
+        if (p && p.id !== "custom" && p.base) {
+          aiBaseEl.value = p.base;
+          aiModelEl.value = p.model;
+        }
+      });
+    }
+    const aiSaveBtn = $("#aiSave", body);
+    if (aiSaveBtn) aiSaveBtn.addEventListener("click", () => {
+      readAI();
+      if (aiMsg) {
+        aiMsg.textContent = AICfg.ready ? "已保存，去「记录」页按住 🎤 试试" : "已保存（没填 Key 时先按原话记）";
+        aiMsg.className = "sync-msg ok";
+      }
+    });
+    const aiTestBtn = $("#aiTest", body);
+    if (aiTestBtn) aiTestBtn.addEventListener("click", async () => {
+      readAI();
+      if (!AICfg.ready) {
+        if (aiMsg) { aiMsg.textContent = "先填 API Key"; aiMsg.className = "sync-msg err"; }
+        return;
+      }
+      if (aiMsg) { aiMsg.textContent = "正在连 " + AICfg.url() + " …"; aiMsg.className = "sync-msg"; }
+      try {
+        const r = await AI.chat([{ role: "user", content: "只回复两个字：通了" }], { maxTokens: 12 });
+        if (aiMsg) { aiMsg.textContent = "通了 ✓ 模型回：" + String(r).trim().slice(0, 24); aiMsg.className = "sync-msg ok"; }
+      } catch (e) {
+        if (aiMsg) { aiMsg.textContent = "失败：" + e.message; aiMsg.className = "sync-msg err"; }
+      }
+    });
+
     const ig = $("#installGuideBtn", body);
     if (ig) ig.addEventListener("click", openInstallGuide);
     const wtOpen = $("#wtOpen", body);
@@ -2565,8 +2641,552 @@ function toggleWkFull() {
 }
 
 /* =========================================================
+   记录 / 沉淀
+   打通链路：说完（语音）→ 提炼（AI）→ 流水 → 自动汇总成复盘
+   原则：AI 只输出结构化建议，写库永远要经过一次人工确认
+   ========================================================= */
+const LOG_TYPES = {
+  win: { name: "成果", icon: "◆" },
+  pit: { name: "踩坑", icon: "▲" },
+  idea: { name: "想法", icon: "○" }
+};
+let logFilter = "all";
+let logQuery = "";
+let logMode = "stream";
+let pendingLog = null;
+
+function logTypeOf(t) { return LOG_TYPES[t] || LOG_TYPES.win; }
+
+/* ---------- 语音识别（浏览器原生，免费，无需 Key） ---------- */
+const Voice = {
+  rec: null,
+  active: false,
+  buf: "",
+  supported() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
+  start(onUpdate, onEnd) {
+    if (!this.supported()) {
+      toast("这个浏览器不支持网页语音，用手机输入法的 🎤 键也一样");
+      return false;
+    }
+    if (this.active) return false;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let r;
+    try { r = new SR(); } catch (e) { toast("麦克风启动失败"); return false; }
+    r.lang = "zh-CN";
+    r.continuous = true;
+    r.interimResults = true;
+    r.maxAlternatives = 1;
+    this.buf = "";
+    this.active = true;
+    r.onresult = e => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        if (res.isFinal) this.buf += res[0].transcript;
+        else interim += res[0].transcript;
+      }
+      if (onUpdate) onUpdate((this.buf + interim).trim());
+    };
+    r.onerror = e => {
+      this.active = false;
+      const map = {
+        "not-allowed": "麦克风没授权，去浏览器地址栏左边允许一下",
+        "service-not-allowed": "这个浏览器不支持网页语音，用输入法语音键",
+        "audio-capture": "找不到麦克风",
+        "network": "语音服务连不上（网页语音大多要联网）"
+      };
+      if (e.error !== "no-speech" && e.error !== "aborted") toast(map[e.error] || ("语音出错：" + e.error));
+    };
+    r.onend = () => {
+      this.active = false;
+      if (onEnd) onEnd(this.buf.trim());
+    };
+    try { r.start(); } catch (e) { this.active = false; return false; }
+    this.rec = r;
+    return true;
+  },
+  stop() {
+    if (this.rec) { try { this.rec.stop(); } catch (e) {} }
+    this.active = false;
+  }
+};
+
+/* 按住说话：pointer 事件比 mousedown 在手机上更稳 */
+function bindHold(el, onStart, onStop) {
+  if (!el) return;
+  let holding = false;
+  const down = e => {
+    if (e.preventDefault) e.preventDefault();
+    if (holding) return;
+    holding = true;
+    el.classList.add("rec");
+    onStart();
+  };
+  const up = () => {
+    if (!holding) return;
+    holding = false;
+    el.classList.remove("rec");
+    onStop();
+  };
+  el.addEventListener("pointerdown", down);
+  el.addEventListener("pointerup", up);
+  el.addEventListener("pointercancel", up);
+  el.addEventListener("pointerleave", up);
+}
+
+/* ---------- AI 调用（任何 OpenAI 兼容接口） ---------- */
+const AI = {
+  async chat(messages, opt) {
+    if (!AICfg.ready) throw new Error("还没填 AI Key，去「设置 → AI 助手」填一个");
+    let res;
+    try {
+      res = await fetch(AICfg.url(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + AICfg.key },
+        body: JSON.stringify({
+          model: AICfg.model,
+          messages,
+          temperature: (opt && opt.temperature != null) ? opt.temperature : 0.2,
+          max_tokens: (opt && opt.maxTokens) || 400
+        })
+      });
+    } catch (e) {
+      throw new Error("连不上接口。多半是这个服务不允许浏览器直连，换「硅基流动」或自建代理试试");
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = text;
+      try { const j = JSON.parse(text); msg = (j.error && j.error.message) || j.message || text; } catch (e) {}
+      throw new Error(res.status + " " + msg);
+    }
+    let j;
+    try { j = JSON.parse(text); } catch (e) { throw new Error("接口返回的不是 JSON"); }
+    const c = j.choices && j.choices[0];
+    return (c && c.message && c.message.content) || "";
+  }
+};
+
+function parseAIJson(s) {
+  if (!s) return null;
+  let t = String(s).trim();
+  t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a >= 0 && b > a) t = t.slice(a, b + 1);
+  try { return JSON.parse(t); } catch (e) { return null; }
+}
+
+/* 把一段口语提炼成 {type, text, detail, tags} */
+async function aiPolish(raw) {
+  const sys = [
+    "你把用户随口说的口语整理成一条工作记录。用户是工科学生，说话可能啰嗦、带语气词、只说不写。",
+    "语音识别常把技术词听错，你要按上下文纠正，例如「爱二塞」→ I2C、「S T M 三二」→ STM32、「哈儿库」→ HAL 库。",
+    "只输出一个 JSON 对象，不要任何解释、不要代码块标记。格式：",
+    '{"type":"win|pit|idea","text":"做了什么，25字内，客观陈述","detail":"原因或怎么解决的，40字内，没有就空字符串","tags":["1到3个名词标签"]}',
+    "type 判断：完成了事/解决了问题=win；踩了坑并说清原因=pit；只是念头/计划=idea。",
+    "tags 优先用项目名或技术名（如 AELOS、I2C、STM32、ROS、英语、考研）。"
+  ].join("\n");
+  const out = await AI.chat([
+    { role: "system", content: sys },
+    { role: "user", content: "现在时间：" + todayStr() + "。原话：" + raw }
+  ], { maxTokens: 300 });
+  const j = parseAIJson(out);
+  if (!j) return null;
+  const type = ["win", "pit", "idea"].indexOf(j.type) >= 0 ? j.type : "win";
+  let tags = Array.isArray(j.tags) ? j.tags : [];
+  tags = tags.filter(x => typeof x === "string" && x.trim()).slice(0, 4).map(x => x.replace(/^#/, "").trim());
+  return {
+    type,
+    text: String(j.text || raw).slice(0, 60),
+    detail: String(j.detail || "").slice(0, 120),
+    tags
+  };
+}
+
+/* 本地兜底：AI 没配或失败时，也不让用户白说 */
+function localPolish(raw) {
+  const s = String(raw || "").trim();
+  let type = "win";
+  if (/卡|报错|失败|不对|坑|搞不定|一直|找不到|问题是/.test(s)) type = "pit";
+  else if (/想|要不要|也许|打算|以后|考虑/.test(s)) type = "idea";
+  const tags = [];
+  const pool = ["AELOS", "I2C", "STM32", "ESP32", "ROS", "OpenCV", "Python", "英语", "考研", "竞赛", "单片机"];
+  pool.forEach(k => { if (s.toUpperCase().indexOf(k.toUpperCase()) >= 0) tags.push(k); });
+  return { type, text: s.slice(0, 60), detail: "", tags: tags.slice(0, 3) };
+}
+
+/* ---------- 写库 ---------- */
+function pushLog(obj) {
+  if (!Array.isArray(Store.data.logs)) Store.data.logs = [];
+  const item = {
+    id: uid(),
+    date: obj.date || todayStr(),
+    ts: Date.now(),
+    type: obj.type || "win",
+    text: String(obj.text || "").trim(),
+    detail: String(obj.detail || "").trim(),
+    tags: Array.isArray(obj.tags) ? obj.tags.filter(Boolean).slice(0, 4) : [],
+    link: obj.link || "",
+    projectId: obj.projectId || ""
+  };
+  if (!item.text) return false;
+  Store.data.logs.push(item);
+  Store.save();
+  renderLog(); renderReview();
+  return true;
+}
+
+function deleteLog(id) {
+  Store.data.logs = (Store.data.logs || []).filter(x => x.id !== id);
+  Store.save();
+  renderLog(); renderReview();
+}
+
+/* ---------- 流水渲染 ---------- */
+function logDayLabel(k) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return "未标日期";
+  const t = todayStr();
+  if (k === t) return "今天";
+  const d = new Date(t + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  if (k === dateStr(d)) return "昨天";
+  return k.slice(5).replace("-", "/");
+}
+
+function logItemHTML(l) {
+  const ty = logTypeOf(l.type);
+  const tags = (l.tags || []).filter(Boolean);
+  return `<div class="log-item ${ty.name === "成果" ? "win" : ty.name === "踩坑" ? "pit" : "idea"}" data-id="${l.id}">
+    <span class="li-mark">${ty.icon}</span>
+    <div class="li-body">
+      <div class="li-text">${esc(l.text || "")}</div>
+      ${l.detail ? `<div class="li-detail">${esc(l.detail)}</div>` : ""}
+      <div class="li-meta">
+        <span class="li-type">${ty.name}</span>
+        ${tags.map(x => `<span class="li-tag">#${esc(x)}</span>`).join("")}
+        ${l.link ? `<a class="li-link" href="${esc(l.link)}" target="_blank" rel="noopener">链接</a>` : ""}
+      </div>
+    </div>
+    <button class="li-del" data-act="log-del" title="删除">✕</button>
+  </div>`;
+}
+
+function renderLog() {
+  const box = $("#logStream");
+  const hint = $("#logHint");
+  const all = Array.isArray(Store.data.logs) ? Store.data.logs : [];
+  if (hint) hint.textContent = all.length ? `共 ${all.length} 条` : "";
+  if (!box) return;
+
+  if (!all.length) {
+    box.innerHTML = `<div class="empty-hint">还没有记录。<br>在上面说一句，或者去完成一个待办——完成时它会问你一句。</div>`;
+    return;
+  }
+
+  let arr = all.slice().sort((a, b) =>
+    String(b.date || "").localeCompare(String(a.date || "")) || (b.ts || 0) - (a.ts || 0));
+  if (logFilter !== "all") arr = arr.filter(l => l.type === logFilter);
+  if (logQuery) {
+    const q = logQuery.toLowerCase();
+    arr = arr.filter(l =>
+      String(l.text || "").toLowerCase().indexOf(q) >= 0 ||
+      String(l.detail || "").toLowerCase().indexOf(q) >= 0 ||
+      (l.tags || []).join(" ").toLowerCase().indexOf(q) >= 0
+    );
+  }
+  if (!arr.length) { box.innerHTML = `<div class="empty-hint">没有符合条件的结果</div>`; return; }
+
+  const groups = {};
+  arr.forEach(l => { const k = l.date || "未知"; (groups[k] = groups[k] || []).push(l); });
+  const keys = Object.keys(groups).sort((a, b) => String(b).localeCompare(String(a)));
+
+  box.innerHTML = keys.map(k => `
+    <div class="log-day">
+      <div class="ld-head"><span class="ld-name">${esc(logDayLabel(k))}</span><span class="ld-count">${groups[k].length}</span></div>
+      ${groups[k].map(logItemHTML).join("")}
+    </div>`).join("");
+}
+
+/* ---------- 周复盘（不靠写，靠汇总） ---------- */
+function weekKeyOf(d) {
+  const dt = d || new Date();
+  return dt.getFullYear() + "-W" + pad2(isoWeekNo(dt));
+}
+
+function renderReview() {
+  const box = $("#reviewBox");
+  if (!box) return;
+  /* 正在写「这周一句话」时不重绘，免得打字被打断 */
+  const editing = $("#rvNote");
+  if (editing && document.activeElement === editing) return;
+  const mon = mondayOf(new Date());
+  const start = dateStr(mon);
+  const today = todayStr();
+  const logs = (Store.data.logs || []).filter(l => l.date && l.date >= start && l.date <= today);
+  const wins = logs.filter(l => l.type === "win");
+  const pits = logs.filter(l => l.type === "pit");
+  const ideas = logs.filter(l => l.type === "idea");
+
+  const tagCount = {};
+  logs.forEach(l => (l.tags || []).forEach(t => { if (t) tagCount[t] = (tagCount[t] || 0) + 1; }));
+  const tagKeys = Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a]).slice(0, 8);
+  const maxTag = tagKeys.length ? tagCount[tagKeys[0]] : 1;
+
+  const weekTodos = (Store.data.todos || []).filter(t => t.date && t.date >= start && t.date <= today);
+  const todoDone = weekTodos.filter(t => t.done).length;
+
+  let chkDone = 0, chkAll = 0;
+  (Store.data.habits || []).forEach(h => {
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon);
+      d.setDate(d.getDate() + i);
+      const k = dateStr(d);
+      if (k > today) break;
+      chkAll++;
+      if (h.history && h.history[k]) chkDone++;
+    }
+  });
+
+  const wno = currentWeekNo();
+  const wk = weekKeyOf();
+  const note = (Store.data.reviews || {})[wk] || "";
+
+  box.innerHTML = `
+    <div class="rv-head">
+      <div>
+        <div class="rv-title">第 ${wno == null ? "?" : wno} 周 · 本周复盘</div>
+        <div class="rv-range">${start.slice(5).replace("-", "/")} — ${today.slice(5).replace("-", "/")}</div>
+      </div>
+      <button class="btn ghost rv-share" id="rvCopy">复制成文字</button>
+    </div>
+
+    <div class="rv-nums">
+      <div class="rv-num"><span class="rv-v">${logs.length}</span><span class="rv-k">记录</span></div>
+      <div class="rv-num"><span class="rv-v win">${wins.length}</span><span class="rv-k">成果</span></div>
+      <div class="rv-num"><span class="rv-v pit">${pits.length}</span><span class="rv-k">踩坑</span></div>
+      <div class="rv-num"><span class="rv-v idea">${ideas.length}</span><span class="rv-k">想法</span></div>
+    </div>
+
+    <div class="rv-sec">
+      <div class="rv-sec-t">时间花在哪</div>
+      ${tagKeys.length ? tagKeys.map(t => `
+        <div class="rv-tag-row">
+          <span class="rv-tag-name">${esc(t)}</span>
+          <span class="rv-bar"><i style="width:${Math.max(6, Math.round(tagCount[t] / maxTag * 100))}%"></i></span>
+          <span class="rv-tag-n">${tagCount[t]}</span>
+        </div>`).join("") : `<div class="empty-hint sm">这周还没有打标签的记录</div>`}
+    </div>
+
+    <div class="rv-sec">
+      <div class="rv-sec-t">本周产出</div>
+      ${wins.length ? `<ul class="rv-list win">${wins.map(l => `<li>${esc(l.text)}${l.detail ? `<span class="rv-li-sub">${esc(l.detail)}</span>` : ""}</li>`).join("")}</ul>`
+        : `<div class="empty-hint sm">这周还没记成果。完成待办时顺手记一条，三个月后就是简历。</div>`}
+    </div>
+
+    <div class="rv-sec">
+      <div class="rv-sec-t">踩过的坑</div>
+      ${pits.length ? `<ul class="rv-list pit">${pits.map(l => `<li>${esc(l.text)}${l.detail ? `<span class="rv-li-sub">${esc(l.detail)}</span>` : ""}</li>`).join("")}</ul>`
+        : `<div class="empty-hint sm">这周没记踩坑</div>`}
+    </div>
+
+    <div class="rv-sec">
+      <div class="rv-sec-t">执行情况</div>
+      <div class="rv-line"><span>待办</span><span>${todoDone}/${weekTodos.length}</span></div>
+      <div class="rv-line"><span>打卡</span><span>${chkDone}/${chkAll}</span></div>
+    </div>
+
+    <div class="rv-note">
+      <label for="rvNote">这周一句话（只写这一句就够）</label>
+      <textarea id="rvNote" class="input" rows="2" placeholder="最大的收获，或者最大的问题">${esc(note)}</textarea>
+      <button class="btn primary" id="rvSave" type="button">保存</button>
+    </div>`;
+}
+
+function saveReviewNote() {
+  const ta = $("#rvNote");
+  if (!ta) return;
+  Store.data.reviews = Store.data.reviews || {};
+  Store.data.reviews[weekKeyOf()] = ta.value.trim();
+  Store.save();
+  toast("这周的一句话已存下");
+}
+
+/* 复盘一键复制成纯文本（方便发给别人或贴进文档） */
+function copyReviewText() {
+  const mon = mondayOf(new Date());
+  const start = dateStr(mon);
+  const today = todayStr();
+  const logs = (Store.data.logs || []).filter(l => l.date && l.date >= start && l.date <= today);
+  const wno = currentWeekNo();
+  const ta = $("#rvNote");
+  const lines = [];
+  lines.push(`第 ${wno == null ? "?" : wno} 周复盘（${start.slice(5)} — ${today.slice(5)}）`);
+  lines.push(`记录 ${logs.length} 条：成果 ${logs.filter(l => l.type === "win").length} · 踩坑 ${logs.filter(l => l.type === "pit").length}`);
+  const wins = logs.filter(l => l.type === "win");
+  if (wins.length) {
+    lines.push("");
+    lines.push("产出：");
+    wins.forEach(l => lines.push("· " + l.text + (l.detail ? "（" + l.detail + "）" : "")));
+  }
+  const pits = logs.filter(l => l.type === "pit");
+  if (pits.length) {
+    lines.push("");
+    lines.push("踩坑：");
+    pits.forEach(l => lines.push("· " + l.text + (l.detail ? "（" + l.detail + "）" : "")));
+  }
+  if (ta && ta.value.trim()) { lines.push(""); lines.push("一句话：" + ta.value.trim()); }
+  const txt = lines.join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => toast("已复制，可以直接粘出去"), () => toast("复制失败，手动选一下吧"));
+  } else {
+    toast("这个浏览器不支持一键复制");
+  }
+}
+
+/* ---------- 记录页：说一句 → 提炼 → 确认 ---------- */
+function showLogLive(text) {
+  const live = $("#lcLive");
+  if (!live) return;
+  if (!text) { live.classList.add("hidden"); live.textContent = ""; return; }
+  live.classList.remove("hidden");
+  live.innerHTML = `<span class="lv-dot"></span>${esc(text)}`;
+}
+
+function showLogPreview(p, raw) {
+  const box = $("#lcPreview");
+  if (!box) return;
+  pendingLog = Object.assign({}, p, { _raw: raw });
+  const ty = logTypeOf(p.type);
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <div class="lp-card">
+      <div class="lp-head">
+        <span class="lp-badge">帮我整理好了</span>
+        <span class="lp-src">${AICfg.ready ? "AI" : "本地"}</span>
+      </div>
+      <div class="lp-types">
+        <button class="lp-type ${p.type === "win" ? "on" : ""}" data-t="win" type="button">成果</button>
+        <button class="lp-type ${p.type === "pit" ? "on" : ""}" data-t="pit" type="button">踩坑</button>
+        <button class="lp-type ${p.type === "idea" ? "on" : ""}" data-t="idea" type="button">想法</button>
+      </div>
+      <input class="input lp-text" id="lpText" value="${esc(p.text || "")}" placeholder="做了什么" />
+      <input class="input lp-detail" id="lpDetail" value="${esc(p.detail || "")}" placeholder="原因 / 怎么解的（可空）" />
+      <input class="input lp-tags" id="lpTags" value="${(p.tags || []).map(t => "#" + t).join(" ")}" placeholder="标签，空格分开" />
+      <div class="lp-actions">
+        <button class="btn ghost" id="lpCancel" type="button">不用了</button>
+        <button class="btn ghost" id="lpRaw" type="button">看原话</button>
+        <button class="btn primary" id="lpSave" type="button">存下</button>
+      </div>
+      <div class="lp-raw hidden" id="lpRawBox">${esc(raw || "")}</div>
+    </div>`;
+
+  box.querySelectorAll(".lp-type").forEach(b => b.addEventListener("click", () => {
+    if (!pendingLog) return;
+    pendingLog.type = b.dataset.t;
+    box.querySelectorAll(".lp-type").forEach(x => x.classList.toggle("on", x === b));
+  }));
+  const rawBtn = $("#lpRaw", box);
+  if (rawBtn) rawBtn.addEventListener("click", () => {
+    const rb = $("#lpRawBox", box);
+    if (rb) rb.classList.toggle("hidden");
+  });
+  const cancelBtn = $("#lpCancel", box);
+  if (cancelBtn) cancelBtn.addEventListener("click", () => {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    pendingLog = null;
+  });
+  const saveBtn = $("#lpSave", box);
+  if (saveBtn) saveBtn.addEventListener("click", () => {
+    if (!pendingLog) return;
+    const ok = pushLog({
+      type: pendingLog.type,
+      text: $("#lpText", box).value.trim(),
+      detail: $("#lpDetail", box).value.trim(),
+      tags: $("#lpTags", box).value.split(/\s+/).map(s => s.replace(/^#/, "").trim()).filter(Boolean)
+    });
+    if (ok) toast("已记下");
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    pendingLog = null;
+  });
+}
+
+async function handleSpoken(text) {
+  const raw = String(text || "").trim();
+  const tip = $("#logTip");
+  showLogLive("");
+  if (tip) tip.textContent = "说完不用整理，会帮你提炼成「做了什么 · 为什么 · 标签」";
+  if (!raw) return;
+  let p = null;
+  if (AICfg.polish && AICfg.ready) {
+    if (tip) tip.textContent = "正在整理…";
+    try { p = await aiPolish(raw); } catch (e) {
+      if (tip) tip.textContent = "整理失败：" + e.message + "（先按原话记下了）";
+      p = localPolish(raw);
+    }
+  } else {
+    p = localPolish(raw);
+    if (tip) tip.textContent = AICfg.polish ? "没填 Key，先按原话记；去设置里填一个就能自动提炼" : "已关掉自动提炼，按原话记";
+  }
+  if (tip) tip.textContent = "说完不用整理，会帮你提炼成「做了什么 · 为什么 · 标签」";
+  showLogPreview(p || localPolish(raw), raw);
+}
+
+function addLogFromInput() {
+  const el = $("#logText");
+  if (!el) return;
+  const raw = el.value.trim();
+  if (!raw) { el.focus(); return; }
+  el.value = "";
+  handleSpoken(raw);
+}
+
+/* ---------- 完成待办后的「记一笔」 ---------- */
+let quickLogType = "win";
+let quickLogTodo = "";
+
+function showQuickLog(todoText) {
+  const box = $("#quickLog");
+  if (!box) return;
+  quickLogTodo = todoText || "";
+  const sub = $("#qlSub");
+  if (sub) sub.textContent = todoText ? "「" + todoText + "」" : "";
+  const inp = $("#qlText");
+  if (inp) inp.value = "";
+  Array.prototype.forEach.call(box.querySelectorAll(".ql-type"), x =>
+    x.classList.toggle("on", x.dataset.type === quickLogType));
+  box.classList.remove("hidden");
+  setTimeout(() => { if (inp) inp.focus(); }, 60);
+}
+
+function hideQuickLog() {
+  const box = $("#quickLog");
+  if (box) box.classList.add("hidden");
+}
+
+function saveQuickLog() {
+  const inp = $("#qlText");
+  const text = inp ? inp.value.trim() : "";
+  if (!text) { hideQuickLog(); return; }
+  pushLog({ type: quickLogType, text, detail: "" });
+  hideQuickLog();
+  toast("已记下，周末复盘会自己汇总");
+}
+
+/* =========================================================
    视图切换 & 初始化
    ========================================================= */
+/* 切换「流水 / 复盘」两个子页 */
+function setLogMode(mode) {
+  logMode = mode === "review" ? "review" : "stream";
+  const seg = $("#logSeg");
+  if (seg) $$(".seg-btn", seg).forEach(x => x.classList.toggle("active", x.dataset.mode === logMode));
+  const paneS = $("#logPane"), paneR = $("#reviewPane");
+  if (paneS) paneS.classList.toggle("hidden", logMode !== "stream");
+  if (paneR) paneR.classList.toggle("hidden", logMode !== "review");
+  if (logMode === "review") renderReview(); else renderLog();
+}
+
 function switchView(view) {
   $$(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
@@ -2578,6 +3198,8 @@ function switchView(view) {
     else renderTimeline(true);
   } else if (view === "todo") {
     renderTodo();
+  } else if (view === "log") {
+    if (logMode === "review") renderReview(); else renderLog();
   } else if (view === "countdown") {
     renderCountdown();
   }
@@ -2593,6 +3215,8 @@ function renderAll(scrollToNow = true) {
   renderSkills();
   renderCheckin();
   renderCountdown();
+  renderLog();
+  if (logMode === "review") renderReview();
   updateSyncBadge();
 }
 
@@ -2839,6 +3463,8 @@ function init() {
   /* 支持 ?view=skills 之类直接打开某视图 */
   const v = new URLSearchParams(location.search).get("view");
   if (v && document.getElementById("view-" + v)) switchView(v);
+  /* 直达记录页的复盘：?view=log&tab=review */
+  if (v === "log" && new URLSearchParams(location.search).get("tab") === "review") setLogMode("review");
 
   /* 导航 */
   $$(".nav-item").forEach(btn =>
@@ -2927,6 +3553,71 @@ function init() {
     else if (act === "edit") editHabit(id);
     else if (act === "day") toggleHabitDate(id, btn.dataset.date);
   });
+
+  /* 记录页：输入 / 语音 / 筛选 / 复盘 */
+  const logAddBtn = $("#logAdd");
+  if (logAddBtn) logAddBtn.addEventListener("click", addLogFromInput);
+  const logTextEl = $("#logText");
+  if (logTextEl) logTextEl.addEventListener("keydown", e => { if (e.key === "Enter") addLogFromInput(); });
+
+  bindHold($("#logVoice"), () => {
+    const tip = $("#logTip");
+    if (Voice.start(t => showLogLive(t), t => handleSpoken(t))) {
+      if (tip) tip.textContent = "在听… 松开就结束";
+    }
+  }, () => { Voice.stop(); });
+
+  const logSegEl = $("#logSeg");
+  if (logSegEl) logSegEl.addEventListener("click", e => {
+    const b = e.target.closest(".seg-btn");
+    if (!b) return;
+    setLogMode(b.dataset.mode);
+  });
+
+  const logFilterEl = $("#logFilter");
+  if (logFilterEl) logFilterEl.addEventListener("click", e => {
+    const b = e.target.closest(".lf-btn");
+    if (!b) return;
+    logFilter = b.dataset.ltype;
+    $$(".lf-btn", logFilterEl).forEach(x => x.classList.toggle("active", x === b));
+    renderLog();
+  });
+  const logSearchEl = $("#logSearch");
+  if (logSearchEl) logSearchEl.addEventListener("input", () => {
+    logQuery = logSearchEl.value.trim();
+    renderLog();
+  });
+
+  const logStreamEl = $("#logStream");
+  if (logStreamEl) logStreamEl.addEventListener("click", e => {
+    const del = e.target.closest("[data-act='log-del']");
+    if (!del) return;
+    const item = del.closest(".log-item");
+    if (!item) return;
+    if (confirm("删掉这条记录？")) deleteLog(item.dataset.id);
+  });
+
+  const reviewBoxEl = $("#reviewBox");
+  if (reviewBoxEl) reviewBoxEl.addEventListener("click", e => {
+    if (e.target.closest("#rvSave")) saveReviewNote();
+    else if (e.target.closest("#rvCopy")) copyReviewText();
+  });
+
+  /* 完成待办后的「记一笔」浮层 */
+  const qlSave = $("#qlSave");
+  if (qlSave) qlSave.addEventListener("click", saveQuickLog);
+  const qlClose = $("#qlClose");
+  if (qlClose) qlClose.addEventListener("click", hideQuickLog);
+  const qlTextEl = $("#qlText");
+  if (qlTextEl) qlTextEl.addEventListener("keydown", e => { if (e.key === "Enter") saveQuickLog(); });
+  const qlTypeBtns = Array.prototype.slice.call(document.querySelectorAll(".ql-type"));
+  qlTypeBtns.forEach(b => b.addEventListener("click", () => {
+    quickLogType = b.dataset.type;
+    qlTypeBtns.forEach(x => x.classList.toggle("on", x === b));
+  }));
+  bindHold($("#qlVoice"), () => {
+    Voice.start(t => { if (qlTextEl) qlTextEl.value = t; }, t => { if (qlTextEl) qlTextEl.value = t; });
+  }, () => { Voice.stop(); });
 
   /* 技能 / 导入 / 设置 / 皮肤 */
   $("#skillAdd").addEventListener("click", openAddSkill);

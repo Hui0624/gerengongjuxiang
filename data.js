@@ -112,16 +112,28 @@ const DEFAULT_DATA = {
     { id: "h2", name: "背单词 30 分钟", history: {} },
     { id: "h3", name: "健身打卡", history: {} },
     { id: "h4", name: "喝水 8 杯", history: {} }
-  ]
+  ],
+  /* 流水（产出的唯一来源）
+     type: win 成果 / pit 踩坑 / idea 想法
+     detail 存「为什么 / 怎么解的」，tags 用来聚合项目与领域 */
+  logs: [],
+  /* 项目档案：从流水按 projectId 聚合，不单独维护 */
+  projects: [],
+  /* 周复盘的人工总结：{ "2026-W45": "这周的一句话" } */
+  reviews: {}
 };
 
-/* 给旧数据补齐新字段（训练记录 / 技能绑定 / 待办结束时间），避免升级后读到 undefined */
+/* 给旧数据补齐新字段（训练记录 / 技能绑定 / 待办结束时间 / 流水），避免升级后读到 undefined */
 function fillItemDefaults(d) {
   if (!d) return d;
   d.todos = (Array.isArray(d.todos) ? d.todos : []).map(t => Object.assign({ end: "" }, t));
   d.skills = (Array.isArray(d.skills) ? d.skills : []).map(s => Object.assign({ trainLog: {}, target: 100 }, s));
   d.habits = (Array.isArray(d.habits) ? d.habits : []).map(h => Object.assign({ skillId: "" }, h));
   d.countdowns = (Array.isArray(d.countdowns) ? d.countdowns : []).map(c => Object.assign({ skillId: "" }, c));
+  d.logs = (Array.isArray(d.logs) ? d.logs : []).map(l =>
+    Object.assign({ detail: "", tags: [], link: "", projectId: "", type: "win", ts: 0 }, l));
+  d.projects = Array.isArray(d.projects) ? d.projects : [];
+  d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   return d;
 }
 
@@ -147,7 +159,10 @@ const Store = {
       todos: parsed && Array.isArray(parsed.todos) ? parsed.todos : JSON.parse(JSON.stringify(DEFAULT_DATA.todos)),
       skills: parsed && Array.isArray(parsed.skills) ? parsed.skills : JSON.parse(JSON.stringify(DEFAULT_DATA.skills)),
       habits: parsed && Array.isArray(parsed.habits) ? parsed.habits : JSON.parse(JSON.stringify(DEFAULT_DATA.habits)),
-      countdowns: parsed && Array.isArray(parsed.countdowns) ? parsed.countdowns : JSON.parse(JSON.stringify(DEFAULT_DATA.countdowns))
+      countdowns: parsed && Array.isArray(parsed.countdowns) ? parsed.countdowns : JSON.parse(JSON.stringify(DEFAULT_DATA.countdowns)),
+      logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
+      projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
+      reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {}
     };
     return fillItemDefaults(this.data);
   },
@@ -179,6 +194,37 @@ const SyncCfg = {
   set auto(v) { localStorage.setItem("wb_auto_sync", v ? "1" : "0"); },
   get lastSync() { return Number(localStorage.getItem("wb_last_sync") || 0); },
   set lastSync(v) { localStorage.setItem("wb_last_sync", String(v)); }
+};
+
+/* =========================================================
+   AI 配置：只存在本机浏览器，不进 Gist、不进导出的 JSON
+   Key 不写进代码（仓库是公开的），由用户在设置里自己填
+   ========================================================= */
+const AI_PRESETS = [
+  { id: "deepseek", name: "DeepSeek", base: "https://api.deepseek.com", model: "deepseek-chat", note: "便宜，官方接口可能不允许浏览器直接调用" },
+  { id: "siliconflow", name: "硅基流动", base: "https://api.siliconflow.cn/v1", model: "Qwen/Qwen2.5-7B-Instruct", note: "支持浏览器直连，免费额度够用" },
+  { id: "zhipu", name: "智谱 GLM", base: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4-flash", note: "免费模型，速度较快" },
+  { id: "custom", name: "自定义", base: "", model: "", note: "任何 OpenAI 兼容接口 / 自建代理" }
+];
+
+const AICfg = {
+  get key() { return localStorage.getItem("wb_ai_key") || ""; },
+  set key(v) { v ? localStorage.setItem("wb_ai_key", v) : localStorage.removeItem("wb_ai_key"); },
+  get base() { return localStorage.getItem("wb_ai_base") || "https://api.deepseek.com"; },
+  set base(v) { localStorage.setItem("wb_ai_base", (v || "").replace(/\/+$/, "")); },
+  get model() { return localStorage.getItem("wb_ai_model") || "deepseek-chat"; },
+  set model(v) { localStorage.setItem("wb_ai_model", v || "deepseek-chat"); },
+  /* 语音说完自动提炼，关掉则只转文字 */
+  get polish() { return localStorage.getItem("wb_ai_polish") !== "0"; },
+  set polish(v) { localStorage.setItem("wb_ai_polish", v ? "1" : "0"); },
+  get ready() { return !!this.key; },
+  /* 拼出 chat/completions 地址，兼容用户填到 /v1 或不到 /v1 */
+  url() {
+    let b = (this.base || "").replace(/\/+$/, "");
+    if (/\/chat\/completions$/.test(b)) return b;
+    if (/\/v\d+$/.test(b)) return b + "/chat/completions";
+    return b + "/v1/chat/completions";
+  }
 };
 
 const GH = {
