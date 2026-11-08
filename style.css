@@ -1632,3 +1632,118 @@ input, textarea, select { font-family: inherit; }
   .rs-list { max-height: 42vh; }
 }
 
+/* =========================================================
+   动效层 wb-v9
+   ---------------------------------------------------------
+   原则：
+   1. 只做视觉增强，不改任何布局尺寸
+   2. 一次性动画由 .view.enter 驱动 —— 该 class 只在切换视图时
+      短暂存在，避免列表重渲染时反复播放（否则勾一个待办整列会闪）
+   3. 全部走 theme.css 里的 prefers-reduced-motion 降级
+   ========================================================= */
+
+/* ---------- 1. 视图切换：内容块依次入场 ---------- */
+.view.enter > * {
+  animation: blockIn .32s cubic-bezier(.22, .85, .3, 1) both;
+}
+.view.enter > *:nth-child(2) { animation-delay: 40ms; }
+.view.enter > *:nth-child(3) { animation-delay: 80ms; }
+.view.enter > *:nth-child(4) { animation-delay: 120ms; }
+.view.enter > *:nth-child(n+5) { animation-delay: 150ms; }
+
+@keyframes blockIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 2. 列表：逐条入场 ---------- */
+.view.enter :is(.todo-item, .skill-card, .habit-item, .cd-card) {
+  animation: itemIn .3s cubic-bezier(.22, .85, .3, 1) both;
+}
+.view.enter :is(.todo-item, .skill-card, .habit-item, .cd-card):nth-child(2) { animation-delay: 50ms; }
+.view.enter :is(.todo-item, .skill-card, .habit-item, .cd-card):nth-child(3) { animation-delay: 90ms; }
+.view.enter :is(.todo-item, .skill-card, .habit-item, .cd-card):nth-child(4) { animation-delay: 130ms; }
+.view.enter :is(.todo-item, .skill-card, .habit-item, .cd-card):nth-child(n+5) { animation-delay: 150ms; }
+
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(8px) scale(.992); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 3. 勾选：方框弹跳 + 外圈涟漪 ---------- */
+.check { position: relative; }
+
+.check::after {
+  content: "";
+  position: absolute; inset: -3px;
+  border: 2px solid var(--green);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.todo-item.done .check,
+.habit-today.done .check {
+  animation: checkPop .36s cubic-bezier(.2, .9, .3, 1.4);
+}
+.todo-item.done .check::after,
+.habit-today.done .check::after {
+  animation: checkRing .55s ease-out;
+}
+
+@keyframes checkPop {
+  0%   { transform: scale(.82); }
+  45%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+@keyframes checkRing {
+  0%   { transform: scale(.7);  opacity: .85; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+/* ---------- 4. 进度条：悬停扫光 ---------- */
+.progress .fill::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.progress:hover .fill::after { animation: shine 1s ease; }
+
+@keyframes shine {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(200%); }
+}
+
+/* ---------- 5. 卡片悬停：轻微上浮 ---------- */
+.todo-item { transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.todo-item:hover { transform: translateY(-1px); }
+
+.habit-item { transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.habit-item:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+
+.skill-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+
+/* ---------- 6. 主卡片渐变缓慢流动 ---------- */
+.next-card,
+.home-date {
+  background-size: 180% 180%;
+  animation: heroDrift 16s ease-in-out infinite alternate;
+}
+
+@keyframes heroDrift {
+  from { background-position: 0% 40%; }
+  to   { background-position: 100% 60%; }
+}
+
+/* ---------- 7. 导航激活标记：竖向展开 ---------- */
+.nav-item.active::before {
+  animation: navMark .34s cubic-bezier(.2, .9, .3, 1.35);
+}
+
+@keyframes navMark {
+  from { transform: translateY(-50%) scaleY(0); opacity: 0; }
+  to   { transform: translateY(-50%) scaleY(1); opacity: 1; }
+}
+

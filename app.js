@@ -3351,6 +3351,18 @@ function setLogMode(mode) {
 function switchView(view) {
   $$(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
+
+  // 入场动画：enter 只在切换瞬间挂上，700ms 后摘掉。
+  // 不能常驻，否则列表重渲染（勾一个待办）会让整列重新播放动画。
+  const cur = document.getElementById("view-" + view);
+  if (cur) {
+    cur.classList.remove("enter");
+    void cur.offsetWidth;                 // 强制重排，保证连续切换也能重启动画
+    cur.classList.add("enter");
+    clearTimeout(cur._enterT);
+    cur._enterT = setTimeout(() => cur.classList.remove("enter"), 700);
+  }
+
   if (view === "home") {
     renderHome();
   } else if (view === "timeline") {
@@ -3620,6 +3632,13 @@ function init() {
   }
 
   renderAll(true);
+
+  /* 首屏入场：初始视图不经过 switchView，这里补一次 enter */
+  const firstView = $(".view.active");
+  if (firstView) {
+    firstView.classList.add("enter");
+    setTimeout(() => firstView.classList.remove("enter"), 700);
+  }
 
   /* 支持 ?view=skills 之类直接打开某视图 */
   const v = new URLSearchParams(location.search).get("view");
