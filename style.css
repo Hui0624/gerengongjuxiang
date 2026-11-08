@@ -1576,3 +1576,59 @@ input, textarea, select { font-family: inherit; }
   .nav-item .ni svg { width: 16px; height: 16px; }
 }
 
+/* =========================================================
+   回收站 / 历史版本
+   ========================================================= */
+.btn.mini { padding: 6px 12px; font-size: 12.5px; border-radius: 8px; }
+
+.rs-tip { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin: 0 0 12px; }
+
+.rs-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 48vh; overflow-y: auto;
+  padding-right: 2px;
+}
+
+.rs-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 13px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.rs-main { flex: 1 1 auto; min-width: 0; }
+
+.rs-name {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+}
+
+.rs-label {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.rs-kind {
+  flex: 0 0 auto;
+  font-size: 10.5px; font-weight: 500;
+  padding: 2px 7px; border-radius: 6px;
+  color: var(--muted); background: var(--hover-bg); border: 1px solid var(--border);
+}
+.rs-kind.k-todo { color: #5b8def; border-color: rgba(91, 141, 239, .38); background: rgba(91, 141, 239, .1); }
+.rs-kind.k-countdown { color: #d97706; border-color: rgba(217, 119, 6, .38); background: rgba(217, 119, 6, .1); }
+.rs-kind.k-log { color: #7c6bd6; border-color: rgba(124, 107, 214, .38); background: rgba(124, 107, 214, .1); }
+.rs-kind.k-habit,
+.rs-kind.k-skill { color: var(--green); border-color: var(--green-line); background: var(--green-soft); }
+
+.rs-meta { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+.rs-ops { display: flex; gap: 6px; flex: 0 0 auto; }
+
+@media (max-width: 560px) {
+  .rs-item { flex-wrap: wrap; gap: 9px; padding: 10px 11px; }
+  .rs-main { flex: 1 1 100%; }
+  .rs-ops { flex: 1 1 100%; justify-content: flex-end; }
+  .rs-list { max-height: 42vh; }
+}
+

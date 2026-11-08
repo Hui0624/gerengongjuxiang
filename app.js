@@ -1028,9 +1028,13 @@ function toggleTodo(id) {
 }
 
 function deleteTodo(id) {
+  const t = Store.data.todos.find(x => x.id === id);
+  if (!t) return;
+  Trash.add("todo", t, t.text);
   Store.data.todos = Store.data.todos.filter(x => x.id !== id);
-  Store.save();
+  Store.save({ snapshot: true, label: "删除待办前" });
   renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+  toast("已移入回收站，30 天内可恢复");
 }
 
 /* =========================================================
@@ -1107,9 +1111,13 @@ function addCountdown() {
 }
 
 function deleteCountdown(id) {
+  const c = Store.data.countdowns.find(x => x.id === id);
+  if (!c) return;
+  Trash.add("countdown", c, c.name);
   Store.data.countdowns = Store.data.countdowns.filter(x => x.id !== id);
-  Store.save();
+  Store.save({ snapshot: true, label: "删除倒计时前" });
   renderCountdown(); renderHome();
+  toast("已移入回收站，30 天内可恢复");
 }
 
 /* =========================================================
@@ -1206,9 +1214,12 @@ function bindSkillEvents() {
       } else if (act === "rename") {
         openRenameSkill(skill.id);
       } else if (act === "del") {
-        if (confirm(`删除技能「${skill.name}」？`)) {
+        if (confirm(`删除技能「${skill.name}」？会移入回收站，30 天内可恢复。`)) {
+          Trash.add("skill", skill, skill.name);
           Store.data.skills = Store.data.skills.filter(x => x.id !== skill.id);
-          Store.save(); renderSkills(); renderHome();
+          Store.save({ snapshot: true, label: "删除技能前" });
+          renderSkills(); renderHome();
+          toast("已移入回收站");
         }
       } else if (act === "link") {
         openLinkModal(skill.id);
@@ -1473,10 +1484,12 @@ function addHabit() {
 function deleteHabit(id) {
   const h = Store.data.habits.find(x => x.id === id);
   if (!h) return;
-  if (!confirm(`删除习惯「${h.name}」？历史记录会一起删除。`)) return;
+  if (!confirm(`删除习惯「${h.name}」？会移入回收站，30 天内可连打卡历史一起恢复。`)) return;
+  Trash.add("habit", h, h.name);
   Store.data.habits = Store.data.habits.filter(x => x.id !== id);
-  Store.save();
-  renderCheckin();
+  Store.save({ snapshot: true, label: "删除习惯前" });
+  renderCheckin(); renderHome();
+  toast("已移入回收站");
 }
 
 /* 设置：名称 / 周期 / 星期 / 目标次数 */
@@ -1939,13 +1952,17 @@ function normalizeData(obj) {
     projects: arr(obj.projects, cur && cur.projects),
     reviews: (obj.reviews && typeof obj.reviews === "object" && !Array.isArray(obj.reviews))
       ? obj.reviews
-      : ((cur && cur.reviews) || {})
+      : ((cur && cur.reviews) || {}),
+    /* 回收站也跟数据走：换设备后仍能恢复；云端没有就沿用本地的 */
+    trash: arr(obj.trash, cur && cur.trash)
   };
   return fillItemDefaults(out);
 }
 
 function applyRemoteData(obj) {
   if (!obj || !Array.isArray(obj.courses)) throw new Error("云端数据格式不对");
+  /* 覆盖本地前留一版（有 10 分钟节流，不会刷爆） */
+  try { Snapshot.capture("拉取云端前"); } catch (e) {}
   Store.data = normalizeData(obj);
   // 直接落盘，避免触发自动推送造成回环
   try { localStorage.setItem(WB_KEY, JSON.stringify(Store.data)); } catch (e) {}
@@ -2006,7 +2023,15 @@ function openSettings() {
     </div>
     <div id="ghMsg" class="sync-msg"></div>
 
-    <h4>备份 / 迁移</h4>
+    <h4>备份 / 恢复</h4>
+    <p>删掉的东西不会立刻消失：待办、倒计时、技能、习惯、记录都会先进<strong>回收站</strong>，30 天内能捞回来；每次删除、导入、拉取云端之前，还会自动留一版<strong>历史快照</strong>。</p>
+    <div class="modal-actions">
+      <button class="btn" id="trashBtn">回收站（${Trash.count()}）</button>
+      <button class="btn" id="snapBtn">历史版本（${Snapshot.list().length}）</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="snapNow">立刻存一版快照</button>
+    </div>
     <p>换设备时也可以先导出 JSON，到新设备再导入。</p>
     <div class="modal-actions">
       <button class="btn" id="expBtn">导出 JSON</button>
@@ -2137,14 +2162,139 @@ function openSettings() {
       }
     });
 
+    $("#trashBtn", body).addEventListener("click", openTrashModal);
+    $("#snapBtn", body).addEventListener("click", openSnapshotModal);
+    $("#snapNow", body).addEventListener("click", () => {
+      const ok = Snapshot.capture("手动保存", true);
+      toast(ok ? "已存一版快照" : "快照存不下（数据太大或存储已满）");
+    });
+
     $("#expBtn", body).addEventListener("click", exportJSON);
     $("#impBtn", body).addEventListener("click", () => $("#impFile", body).click());
     $("#impFile", body).addEventListener("change", e => importJSON(e.target.files[0]));
     $("#resetBtn", body).addEventListener("click", () => {
-      if (confirm("确定恢复成示例数据？当前数据会被覆盖。")) {
-        Store.reset();
-        renderAll();
-        closeModal();
+      if (!confirm("恢复示例数据会把当前所有内容清空。\n\n系统已经自动存了一版，之后可以在「历史版本」里找回。\n\n继续吗？")) return;
+      Store.reset();
+      renderAll();
+      closeModal();
+      toast("已重置，可在设置 → 历史版本里找回");
+    });
+  });
+}
+
+/* =========================================================
+   回收站 / 历史版本
+   ========================================================= */
+function fmtWhen(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, "0");
+  const hm = p(d.getHours()) + ":" + p(d.getMinutes());
+  if (d.toDateString() === new Date().toDateString()) return "今天 " + hm;
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + hm;
+}
+
+function openTrashModal() {
+  const list = Trash.list();
+  let html;
+  if (!list.length) {
+    html = `<div class="empty-hint">回收站是空的。<br>删掉的待办、倒计时、技能、习惯、记录都会先出现在这里。</div>`;
+  } else {
+    html = `
+      <p class="rs-tip">保留 ${Trash.KEEP_DAYS} 天，过期自动清理。恢复后会回到原来的位置。</p>
+      <div class="rs-list">
+        ${list.map(r => `
+          <div class="rs-item" data-id="${r.id}">
+            <div class="rs-main">
+              <div class="rs-name"><span class="rs-kind k-${esc(r.kind)}">${Trash.kindName(r.kind)}</span><span class="rs-label">${esc(r.label || "（无标题）")}</span></div>
+              <div class="rs-meta">${fmtWhen(r.deletedAt)} 删除 · 还有 ${Trash.daysLeft(r)} 天</div>
+            </div>
+            <div class="rs-ops">
+              <button class="btn mini" data-act="restore">恢复</button>
+              <button class="btn mini ghost" data-act="purge">彻底删</button>
+            </div>
+          </div>`).join("")}
+      </div>
+      <div class="modal-actions"><button class="btn ghost" id="trashClear">清空回收站</button></div>`;
+  }
+  openModal("回收站", html, body => {
+    const box = $(".rs-list", body);
+    if (box) box.addEventListener("click", e => {
+      const btn = e.target.closest("[data-act]");
+      if (!btn) return;
+      const row = btn.closest(".rs-item");
+      if (!row) return;
+      const id = row.dataset.id;
+      if (btn.dataset.act === "restore") {
+        if (Trash.restore(id)) {
+          Store.save();
+          renderAll();
+          openTrashModal();
+          toast("已恢复");
+        } else {
+          toast("恢复失败，原始列表找不到了");
+        }
+      } else if (btn.dataset.act === "purge") {
+        if (!confirm("彻底删除后无法恢复，确定？")) return;
+        Trash.remove(id);
+        Store.save();
+        openTrashModal();
+      }
+    });
+    const cl = $("#trashClear", body);
+    if (cl) cl.addEventListener("click", () => {
+      if (!confirm("清空回收站？里面的内容将无法恢复。")) return;
+      Trash.clear();
+      Store.save();
+      openTrashModal();
+      toast("已清空");
+    });
+  });
+}
+
+function openSnapshotModal() {
+  const list = Snapshot.list();
+  let html;
+  if (!list.length) {
+    html = `<div class="empty-hint">还没有快照。<br>每次删除、导入、拉取云端之前会自动留一版，也可以在设置里手动存。</div>`;
+  } else {
+    html = `
+      <p class="rs-tip">恢复某一版会覆盖当前数据；不过恢复前也会先自动存一版，不会越退越少。</p>
+      <div class="rs-list">
+        ${list.map(s => `
+          <div class="rs-item" data-ts="${s.ts}">
+            <div class="rs-main">
+              <div class="rs-name">${esc(s.label || "自动")}</div>
+              <div class="rs-meta">${fmtWhen(s.ts)} · ${esc(Snapshot.summary(s.data))}</div>
+            </div>
+            <div class="rs-ops">
+              <button class="btn mini" data-act="snapRestore">恢复</button>
+              <button class="btn mini ghost" data-act="snapDel">删除</button>
+            </div>
+          </div>`).join("")}
+      </div>`;
+  }
+  openModal("历史版本", html, body => {
+    const box = $(".rs-list", body);
+    if (!box) return;
+    box.addEventListener("click", e => {
+      const btn = e.target.closest("[data-act]");
+      if (!btn) return;
+      const row = btn.closest(".rs-item");
+      if (!row) return;
+      const ts = Number(row.dataset.ts);
+      if (btn.dataset.act === "snapRestore") {
+        if (!confirm("恢复到这一版？当前数据会被覆盖。")) return;
+        if (Snapshot.restore(ts)) {
+          renderAll();
+          closeModal();
+          toast("已恢复到 " + fmtWhen(ts) + " 的版本");
+        } else {
+          toast("这一版读不出来");
+        }
+      } else if (btn.dataset.act === "snapDel") {
+        Snapshot.remove(ts);
+        openSnapshotModal();
       }
     });
   });
@@ -2247,6 +2397,11 @@ window.onDataChanged = function () {
     try {
       await GH.push();
       updateSyncBadge();
+      /* 每 2 小时顺手留一版本地快照，能回溯到今天早些时候的状态 */
+      const lastSnap = Number(localStorage.getItem("wb_last_snap_ts") || 0);
+      if (Date.now() - lastSnap > 2 * 3600e3) {
+        if (Snapshot.capture("自动")) localStorage.setItem("wb_last_snap_ts", String(Date.now()));
+      }
     } catch (e) {
       if (el) { el.textContent = "同步失败"; el.classList.add("err"); }
       console.warn("[sync]", e.message);
@@ -2304,6 +2459,8 @@ function importJSON(file) {
         alert("文件格式不对，需要包含 courses 数组");
         return;
       }
+      /* 导入会整体覆盖，先把当前数据留一版 */
+      Snapshot.capture("导入前", true);
       Store.data = normalizeData(obj);
       Store.save();
       renderAll();
@@ -2836,9 +2993,13 @@ function pushLog(obj) {
 }
 
 function deleteLog(id) {
+  const it = (Store.data.logs || []).find(x => x.id === id);
+  if (!it) return;
+  Trash.add("log", it, it.text);
   Store.data.logs = (Store.data.logs || []).filter(x => x.id !== id);
-  Store.save();
+  Store.save({ snapshot: true, label: "删除记录前" });
   renderLog(); renderReview();
+  toast("已移入回收站，30 天内可恢复");
 }
 
 /* ---------- 流水渲染 ---------- */
@@ -3272,8 +3433,8 @@ async function notify(title, body, tag) {
   if (!Notify.permitted) return;
   const opts = {
     body,
-    icon: "assets/icon-192.png",
-    badge: "assets/icon-192.png",
+    icon: "icon-192.png",
+    badge: "icon-192.png",
     tag: tag || undefined,
     renotify: !!tag
   };

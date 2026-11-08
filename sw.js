@@ -4,7 +4,7 @@
         新版本检测 + 本地通知展示（点击回到应用）。
    纯前端，不依赖任何后端。
    ========================================================= */
-const VERSION = "wb-v7";
+const VERSION = "wb-v8";
 const SHELL = [
   "./",
   "index.html",
@@ -13,9 +13,9 @@ const SHELL = [
   "app.js",
   "data.js",
   "manifest.json",
-  "assets/icon-192.png",
-  "assets/icon-512.png",
-  "assets/icon-maskable-512.png"
+  "icon-192.png",
+  "icon-512.png",
+  "icon-maskable-512.png"
 ];
 
 /* ---------- 安装：预缓存外壳 ---------- */

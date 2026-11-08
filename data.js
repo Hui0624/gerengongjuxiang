@@ -120,7 +120,10 @@ const DEFAULT_DATA = {
   /* 项目档案：从流水按 projectId 聚合，不单独维护 */
   projects: [],
   /* 周复盘的人工总结：{ "2026-W45": "这周的一句话" } */
-  reviews: {}
+  reviews: {},
+  /* 回收站：删除的数据不真删，先挪到这里，30 天内可恢复
+     结构 { id, kind, label, deletedAt, item } */
+  trash: []
 };
 
 /* 给旧数据补齐新字段（训练记录 / 技能绑定 / 待办结束时间 / 流水），避免升级后读到 undefined */
@@ -134,6 +137,8 @@ function fillItemDefaults(d) {
     Object.assign({ detail: "", tags: [], link: "", projectId: "", type: "win", ts: 0 }, l));
   d.projects = Array.isArray(d.projects) ? d.projects : [];
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
+  /* 回收站：只保留结构正确的记录，丢掉脏数据 */
+  d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);
   return d;
 }
 
@@ -162,12 +167,19 @@ const Store = {
       countdowns: parsed && Array.isArray(parsed.countdowns) ? parsed.countdowns : JSON.parse(JSON.stringify(DEFAULT_DATA.countdowns)),
       logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
       projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
-      reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {}
+      reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {},
+      trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : []
     };
     return fillItemDefaults(this.data);
   },
 
-  save() {
+  /* opts.snapshot=true 时，写入前先留一版快照（破坏性操作专用）
+     opts.force=true 跳过 10 分钟节流 */
+  save(opts) {
+    const o = opts || {};
+    if (o.snapshot) {
+      try { Snapshot.capture(o.label || "自动", !!o.force); } catch (e) {}
+    }
     this.data.updatedAt = Date.now();
     try { localStorage.setItem(WB_KEY, JSON.stringify(this.data)); } catch (e) { /* ignore */ }
     if (typeof window !== "undefined" && typeof window.onDataChanged === "function") {
@@ -176,8 +188,164 @@ const Store = {
   },
 
   reset() {
+    /* 重置前先强行存一版，否则这步下去就真没退路了 */
+    try { Snapshot.capture("重置前", true); } catch (e) {}
     this.data = fillItemDefaults(JSON.parse(JSON.stringify(DEFAULT_DATA)));
     this.save();
+  }
+};
+
+/* =========================================================
+   回收站：删除 = 挪进 trash，不真删
+   ========================================================= */
+const Trash = {
+  KEEP_DAYS: 30,     // 保留 30 天
+  MAX: 300,          // 最多存 300 条，防止无限膨胀
+
+  /* kind → 数据数组的字段名 */
+  arrKey(kind) {
+    return { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs" }[kind] || "";
+  },
+
+  /* 可读名字，回收站里显示 */
+  kindName(kind) {
+    return { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录" }[kind] || "条目";
+  },
+
+  /* 移入回收站并返回被删的对象（方便调用方继续 filter 原数组） */
+  add(kind, item, label) {
+    if (!item) return null;
+    if (!Array.isArray(Store.data.trash)) Store.data.trash = [];
+    Store.data.trash.unshift({
+      id: uid(),
+      kind,
+      label: String(label || "").slice(0, 80),
+      deletedAt: Date.now(),
+      item: JSON.parse(JSON.stringify(item))
+    });
+    this.prune();
+    return item;
+  },
+
+  /* 清掉超过 30 天 / 超量的记录 */
+  prune() {
+    const cutoff = Date.now() - this.KEEP_DAYS * 864e5;
+    const t = Array.isArray(Store.data.trash) ? Store.data.trash : [];
+    Store.data.trash = t
+      .filter(x => x && (x.deletedAt || 0) >= cutoff)
+      .slice(0, this.MAX);
+    return Store.data.trash;
+  },
+
+  list() {
+    this.prune();
+    return Store.data.trash || [];
+  },
+
+  /* 剩余可恢复天数 */
+  daysLeft(rec) {
+    const gone = Math.floor((Date.now() - (rec.deletedAt || 0)) / 864e5);
+    return Math.max(0, this.KEEP_DAYS - gone);
+  },
+
+  /* 恢复一条 */
+  restore(recId) {
+    const rec = (Store.data.trash || []).find(x => x.id === recId);
+    if (!rec) return false;
+    const key = this.arrKey(rec.kind);
+    if (!key) return false;
+    if (!Array.isArray(Store.data[key])) Store.data[key] = [];
+    const item = JSON.parse(JSON.stringify(rec.item));
+    /* 同 id 已存在（可能后来手动又建了一个），换新 id 避免冲突 */
+    if (Store.data[key].some(x => x && x.id === item.id)) item.id = uid();
+    Store.data[key].push(item);
+    Store.data.trash = (Store.data.trash || []).filter(x => x.id !== recId);
+    return true;
+  },
+
+  remove(recId) {
+    Store.data.trash = (Store.data.trash || []).filter(x => x.id !== recId);
+  },
+
+  clear() {
+    Store.data.trash = [];
+  },
+
+  count() {
+    return (Store.data.trash || []).length;
+  }
+};
+
+/* =========================================================
+   本地历史快照：环形缓冲，存最近 N 版
+   放独立 localStorage key，不进 Gist、不进导出 JSON
+   ========================================================= */
+const Snapshot = {
+  KEY: "wb_snapshots_v1",
+  MAX: 20,            // 保留 20 版
+  THROTTLE: 10 * 60000, // 非强制时，10 分钟内不重复存
+  MAX_SIZE: 500 * 1024, // 单版超过 500KB 就不存，避免撑爆 5MB 限额
+
+  list() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  },
+
+  /* 存一版；force=true 无视节流 */
+  capture(label, force) {
+    const arr = this.list();
+    const now = Date.now();
+    if (!force && arr[0] && now - arr[0].ts < this.THROTTLE) return false;
+
+    const copy = JSON.parse(JSON.stringify(Store.data));
+    delete copy.trash;              // 回收站不进快照，重复数据会撑爆配额
+    const size = JSON.stringify(copy).length;
+    if (size > this.MAX_SIZE) {
+      console.warn("[snapshot] 数据过大，跳过：", size);
+      return false;
+    }
+    arr.unshift({ ts: now, label: label || "自动", size, data: copy });
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(arr.slice(0, this.MAX)));
+      return true;
+    } catch (e) {
+      /* 配额满了：砍一半再试一次 */
+      try {
+        localStorage.setItem(this.KEY, JSON.stringify(arr.slice(0, Math.max(3, Math.floor(this.MAX / 2)))));
+        return true;
+      } catch (e2) {
+        console.warn("[snapshot] 写入失败：", e2.message);
+        return false;
+      }
+    }
+  },
+
+  /* 恢复到某一版（恢复前会先把当前数据再存一版，防止恢复错了没退路） */
+  restore(ts) {
+    const rec = this.list().find(x => x.ts === ts);
+    if (!rec || !rec.data) return false;
+    this.capture("恢复前", true);
+    const keepTrash = Store.data.trash;
+    Store.data = fillItemDefaults(JSON.parse(JSON.stringify(rec.data)));
+    Store.data.trash = Array.isArray(keepTrash) ? keepTrash : [];
+    Store.save();
+    return true;
+  },
+
+  remove(ts) {
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(this.list().filter(x => x.ts !== ts)));
+    } catch (e) {}
+  },
+
+  /* 给列表显示用的摘要 */
+  summary(data) {
+    if (!data) return "";
+    const n = k => (Array.isArray(data[k]) ? data[k].length : 0);
+    return `待办 ${n("todos")} · 记录 ${n("logs")} · 技能 ${n("skills")} · 打卡 ${n("habits")} · 倒计时 ${n("countdowns")}`;
   }
 };
 
@@ -248,6 +416,43 @@ const GH = {
     return text ? JSON.parse(text) : {};
   },
 
+  /* 数一下核心条目总数，用来判断这次上传是不是「变少了」 */
+  countItems(d) {
+    const n = k => (Array.isArray(d[k]) ? d[k].length : 0);
+    return n("todos") + n("logs") + n("skills") + n("habits") + n("countdowns");
+  },
+
+  /* 条目骤减（少 3 条以上，或减少 ≥30%）时，先把云端当前版本留档
+     返回需要随 PATCH 一起提交的 files，或 null */
+  async archiveIfShrunk(gid, data) {
+    const prev = Number(localStorage.getItem("wb_last_count") || 0);
+    const cur = this.countItems(data);
+    localStorage.setItem("wb_last_count", String(cur));
+    if (prev <= 0) return null;
+
+    const drop = prev - cur;
+    const shrunk = drop >= 3 || (prev >= 5 && drop / prev >= 0.3);
+    if (!shrunk) return null;
+
+    const g = await this.api("GET", "/gists/" + gid + "?_=" + Date.now());
+    const f = g.files && g.files["workbench.json"];
+    if (!f || f.truncated) return null;
+
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}`;
+    const files = {};
+    files["archive-" + stamp + ".json"] = { content: f.content };
+
+    /* 归档只留最近 7 份，多的传 null 删掉 */
+    const olds = Object.keys(g.files || {})
+      .filter(k => /^archive-.*\.json$/.test(k))
+      .sort();
+    olds.slice(0, Math.max(0, olds.length - 6)).forEach(k => { files[k] = null; });
+
+    console.log("[archive] 条目 " + prev + " → " + cur + "，已留存云端旧版");
+    return files;
+  },
+
   async push() {
     const content = JSON.stringify(Store.data, null, 2);
     let gid = SyncCfg.gistId;
@@ -259,10 +464,17 @@ const GH = {
       });
       gid = g.id;
       SyncCfg.gistId = gid;
+      localStorage.setItem("wb_last_count", String(GH.countItems(Store.data)));
     } else {
-      await GH.api("PATCH", "/gists/" + gid, {
-        files: { "workbench.json": { content } }
-      });
+      const files = { "workbench.json": { content } };
+      /* 正常情况零额外请求；只有条目骤减才会多一次 GET 去留档 */
+      try {
+        const extra = await GH.archiveIfShrunk(gid, Store.data);
+        if (extra) Object.assign(files, extra);
+      } catch (e) {
+        console.warn("[archive] 留档失败，继续上传：", e.message);
+      }
+      await GH.api("PATCH", "/gists/" + gid, { files });
     }
     SyncCfg.lastSync = Date.now();
     return gid;
