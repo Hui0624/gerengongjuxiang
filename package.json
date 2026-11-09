@@ -1,0 +1,6 @@
+{
+  "name": "workbench-feishu-reminder",
+  "private": true,
+  "type": "module",
+  "description": "工作台飞书提醒：Cloudflare Worker + 本地测试脚本"
+}
