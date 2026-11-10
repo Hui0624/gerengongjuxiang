@@ -1954,7 +1954,13 @@ function normalizeData(obj) {
       ? obj.reviews
       : ((cur && cur.reviews) || {}),
     /* 回收站也跟数据走：换设备后仍能恢复；云端没有就沿用本地的 */
-    trash: arr(obj.trash, cur && cur.trash)
+    trash: arr(obj.trash, cur && cur.trash),
+    /* 应用启动器：云端是旧版（没有这个字段）时保留本地清单，不能清空 */
+    appGroups: Array.isArray(obj.appGroups)
+      ? obj.appGroups
+      : (Array.isArray(cur && cur.appGroups)
+          ? cur.appGroups
+          : JSON.parse(JSON.stringify(DEFAULT_DATA.appGroups)))
   };
   return fillItemDefaults(out);
 }
@@ -3348,6 +3354,325 @@ function setLogMode(mode) {
   if (logMode === "review") renderReview(); else renderLog();
 }
 
+/* =========================================================
+   应用启动器（wb-v10）
+   - 图标下面只显示用户自己写的备注，不显示 App 名称
+   - 唤起：一次真实点击只发一个 scheme，同步发出；绝不自动重试
+     （Chromium 会把「同一手势里连跳多个协议 / 延迟跳转」当指纹探测拦掉）
+   - 唤起失败只显示「去下载」按钮，由用户再点一次
+   ========================================================= */
+let appsEditing = false;
+let appsDraft = null;
+let appsLaunchTimer = null;
+
+function appGroupList() {
+  const d = Store.data;
+  if (!Array.isArray(d.appGroups)) {
+    d.appGroups = JSON.parse(JSON.stringify(DEFAULT_DATA.appGroups));
+  }
+  return d.appGroups;
+}
+function appUid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function findApp(id) {
+  for (const g of appGroupList()) {
+    const i = g.apps.findIndex(a => a.id === id);
+    if (i > -1) return { g, i, a: g.apps[i] };
+  }
+  return null;
+}
+function appIcon(a) {
+  const inner = a.img
+    ? '<img src="' + esc(a.img) + '" alt="">'
+    : esc(a.initial || (a.name || "?").slice(0, 1));
+  return '<div class="ap-icon ap-c' + (Number(a.color) || 0) + '">' + inner + '</div>';
+}
+function renderApps() {
+  const box = $("#appsList");
+  if (!box) return;
+  const groups = appGroupList();
+  document.body.classList.toggle("apps-editing", appsEditing);
+  const ebtn = $("#appsEdit");
+  if (ebtn) ebtn.textContent = appsEditing ? "完成" : "编辑";
+  const row = $("#appsAddRow");
+  if (row) row.classList.toggle("hidden", !appsEditing);
+  const total = groups.reduce((n, g) => n + g.apps.length, 0);
+  const hint = $("#appsHint");
+  if (hint) hint.textContent = total + " 个应用 · " + groups.length + " 个分组";
+
+  box.innerHTML = groups.length ? groups.map(g =>
+    '<div class="ap-group">' +
+      '<div class="ap-group-title">' +
+        '<span class="ap-bar"></span>' + esc(g.name) +
+        '<span class="ap-cnt">' + g.apps.length + ' 个</span>' +
+        '<span class="ap-gops">' +
+          '<button type="button" class="ap-mini" data-gop="rename" data-gid="' + esc(g.id) + '">改名</button>' +
+          '<button type="button" class="ap-mini" data-gop="del" data-gid="' + esc(g.id) + '">删组</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="ap-grid">' +
+        (g.apps.length ? g.apps.map(a =>
+          '<div class="ap-item" data-id="' + esc(a.id) + '">' +
+            (a.scheme ? "" : '<span class="ap-missing" title="还没填协议"></span>') +
+            '<span class="ap-pencil">✎</span>' +
+            appIcon(a) +
+            '<div class="ap-note">' + esc(a.note || "未写备注") + '</div>' +
+          '</div>').join("")
+        : '<div class="ap-empty">这个分组还没有应用</div>') +
+      '</div>' +
+    '</div>').join("")
+    : '<div class="ap-empty">还没有分组，点「编辑」→「新分组」建一个</div>';
+}
+function appsSave() {
+  Store.save({ snapshot: true, label: "应用启动器变更" });
+  renderApps();
+}
+
+/* ---------- 唤起 ---------- */
+function launchApp(id) {
+  const f = findApp(id);
+  if (!f) return;
+  if (appsEditing) return openAppOps(id);
+  const a = f.a;
+  if (!a.scheme) {
+    toast("这个应用还没填协议");
+    openAppForm(id);
+    return;
+  }
+  /* 必须在本次点击里同步发出，且只发这一个协议 */
+  const link = document.createElement("a");
+  link.href = a.scheme;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  /* visibilitychange 只用来判断「切走了没有」，不据此重试跳转 */
+  let left = false;
+  const onHide = () => { if (document.visibilityState === "hidden") left = true; };
+  document.addEventListener("visibilitychange", onHide);
+  clearTimeout(appsLaunchTimer);
+  appsLaunchTimer = setTimeout(() => {
+    document.removeEventListener("visibilitychange", onHide);
+    if (!left) showLaunchFallback(a);
+  }, 1400);
+}
+function showLaunchFallback(a) {
+  const html =
+    '<p>刚才请求的是 <b>' + esc(a.scheme) + '</b>。没打开的话，可能是协议填错、App 没装，或者浏览器拦了外部跳转。</p>' +
+    '<p class="ap-hint">浏览器不允许网页自动重试，所以这里只给一个按钮，需要你再点一次。</p>' +
+    '<div class="modal-actions">' +
+      '<button class="btn primary" id="apGoDownload" type="button">去下载</button>' +
+      '<button class="btn" id="apEditScheme" type="button">编辑协议</button>' +
+    '</div>';
+  openModal("没打开「" + esc(a.name) + "」？", html, body => {
+    $("#apGoDownload", body).addEventListener("click", () => {
+      closeModal();
+      const url = a.download || ("https://www.baidu.com/s?wd=" + encodeURIComponent(a.name + " 安卓 下载"));
+      window.open(url, "_blank", "noopener");
+    });
+    $("#apEditScheme", body).addEventListener("click", () => openAppForm(a.id));
+  });
+}
+
+/* ---------- 编辑态：操作菜单 ---------- */
+function openAppOps(id) {
+  const f = findApp(id);
+  if (!f) return;
+  const a = f.a;
+  const moves = appGroupList().filter(g => g.id !== f.g.id).map(g =>
+    '<button type="button" class="ap-op" data-to="' + esc(g.id) + '">⇄ 移到「' + esc(g.name) + '」</button>').join("");
+  const html =
+    '<p>备注：' + esc(a.note || "未写备注") + '　·　分组：' + esc(f.g.name) + '</p>' +
+    '<div class="ap-ops">' +
+      '<button type="button" class="ap-op" id="apOpEdit">✎ 编辑资料 / 图标 / 协议</button>' +
+      '<button type="button" class="ap-op" id="apOpUp">↑ 上移</button>' +
+      '<button type="button" class="ap-op" id="apOpDown">↓ 下移</button>' +
+      (moves || '<p class="ap-hint">只有一个分组，先建新分组才能移动</p>') +
+      '<button type="button" class="ap-op danger" id="apOpDel">✕ 删除这个应用</button>' +
+    '</div>';
+  openModal(esc(a.name), html, body => {
+    $("#apOpEdit", body).addEventListener("click", () => openAppForm(a.id));
+    $("#apOpUp", body).addEventListener("click", () => {
+      if (f.i > 0) { const arr = f.g.apps; [arr[f.i-1], arr[f.i]] = [arr[f.i], arr[f.i-1]]; appsSave(); }
+      closeModal();
+    });
+    $("#apOpDown", body).addEventListener("click", () => {
+      const arr = f.g.apps;
+      if (f.i < arr.length - 1) { [arr[f.i+1], arr[f.i]] = [arr[f.i], arr[f.i+1]]; appsSave(); }
+      closeModal();
+    });
+    $("#apOpDel", body).addEventListener("click", () => {
+      if (!confirm("删除「" + a.name + "」？")) return;
+      f.g.apps.splice(f.i, 1);
+      appsSave(); closeModal(); toast("已删除");
+    });
+    $$(".ap-op[data-to]", body).forEach(btn => btn.addEventListener("click", () => {
+      const target = appGroupList().find(g => g.id === btn.dataset.to);
+      if (!target) return;
+      const [moved] = f.g.apps.splice(f.i, 1);
+      target.apps.push(moved);
+      appsSave(); closeModal(); toast("已移到「" + target.name + "」");
+    }));
+  });
+}
+
+/* ---------- 添加 / 编辑表单 ---------- */
+function openAppForm(id) {
+  const f = id ? findApp(id) : null;
+  appsDraft = f ? Object.assign({}, f.a) : {
+    id: appUid("a"), name: "", note: "", scheme: "", initial: "",
+    color: 0, img: "", download: "",
+    group: (appGroupList()[0] || {}).id || ""
+  };
+  if (f) appsDraft.group = f.g.id;
+  drawAppForm(!!f);
+}
+function syncAppDraft() {
+  const v = id => { const el = $("#" + id); return el ? el.value : undefined; };
+  const map = { apName: "name", apNote: "note", apScheme: "scheme", apDownload: "download", apInitial: "initial", apGroup: "group" };
+  Object.keys(map).forEach(id => { const x = v(id); if (x !== undefined) appsDraft[map[id]] = x; });
+}
+function apPreview() {
+  const p = $("#apPreview");
+  if (!p) return;
+  appsDraft.initial = appsDraft.initial || (appsDraft.name || "?").slice(0, 1);
+  p.innerHTML = appIcon(appsDraft) + '<div class="ap-note">' + esc(appsDraft.note || "备注预览") + '</div>';
+}
+function drawAppForm(isEdit) {
+  const a = appsDraft;
+  const groups = appGroupList().map(g =>
+    '<option value="' + esc(g.id) + '"' + (g.id === a.group ? " selected" : "") + '>' + esc(g.name) + '</option>').join("");
+  const html =
+    '<div class="ap-form">' +
+      '<label>应用名称（内部标识，不会显示在图标下）' +
+        '<input class="input" id="apName" value="' + esc(a.name) + '" placeholder="例如 学习通"></label>' +
+      '<label>图标下面的备注 *（唯一会显示出来的文字）' +
+        '<input class="input" id="apNote" value="' + esc(a.note) + '" placeholder="例如 学习打卡 / 签到"></label>' +
+      '<label>协议 scheme（手填）' +
+        '<input class="input" id="apScheme" value="' + esc(a.scheme) + '" placeholder="例如 mqq:// 、weixin://">' +
+        '<small>各家 App 的协议不同，需要自己查。留空时图标左上角会有小橙点。</small></label>' +
+      '<label>下载页（选填）' +
+        '<input class="input" id="apDownload" value="' + esc(a.download) + '" placeholder="https:// 或 market://details?id=包名">' +
+        '<small>不填的话「去下载」会打开应用名搜索页。</small></label>' +
+      '<label>所属分组<select class="input" id="apGroup">' + groups + '</select></label>' +
+      '<div class="ap-field-label">图标</div>' +
+      '<div class="ap-seg">' +
+        '<button type="button" id="apTabText" class="' + (a.img ? "" : "on") + '">首字母字块</button>' +
+        '<button type="button" id="apTabImg" class="' + (a.img ? "on" : "") + '">上传图片</button>' +
+      '</div>' +
+      '<div id="apTextBox" style="' + (a.img ? "display:none" : "") + '">' +
+        '<input class="input" id="apInitial" maxlength="2" value="' + esc(a.initial) + '" placeholder="留空自动取名称第一个字">' +
+        '<div class="ap-swatches">' + [0,1,2,3,4,5].map(c =>
+          '<i data-c="' + c + '" class="ap-c' + c + (c === (Number(a.color) || 0) ? " on" : "") + '"></i>').join("") + '</div>' +
+      '</div>' +
+      '<div id="apImgBox" style="' + (a.img ? "" : "display:none") + '">' +
+        '<input class="input" type="file" id="apImg" accept="image/*">' +
+        '<small>会压缩到 128×128 再存，避免撑大同步数据。</small></div>' +
+      '<div class="ap-preview" id="apPreview"></div>' +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn" id="apCancel" type="button">取消</button>' +
+      '<button class="btn primary" id="apSave" type="button">保存</button>' +
+    '</div>';
+  openModal(isEdit ? "编辑应用" : "添加应用", html, body => {
+    const refresh = () => { syncAppDraft(); apPreview(); };
+    ["apName","apNote","apScheme","apDownload","apInitial","apGroup"].forEach(id =>
+      $("#" + id, body).addEventListener("input", refresh));
+    $("#apTabText", body).addEventListener("click", () => {
+      syncAppDraft(); appsDraft.img = ""; drawAppForm(isEdit);
+    });
+    $("#apTabImg", body).addEventListener("click", () => {
+      syncAppDraft(); drawAppForm(isEdit);
+    });
+    $(".ap-swatches", body).addEventListener("click", e => {
+      const i = e.target.closest("[data-c]");
+      if (!i) return;
+      appsDraft.color = Number(i.dataset.c);
+      $$(".ap-swatches i", body).forEach(x => x.classList.remove("on"));
+      i.classList.add("on");
+      apPreview();
+    });
+    $("#apImg", body).addEventListener("change", e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const cv = document.createElement("canvas");
+          cv.width = cv.height = 128;
+          cv.getContext("2d").drawImage(img, 0, 0, 128, 128);
+          appsDraft.img = cv.toDataURL("image/jpeg", 0.82);
+          drawAppForm(isEdit);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    $("#apCancel", body).addEventListener("click", closeModal);
+    $("#apSave", body).addEventListener("click", () => apCommit(isEdit));
+    apPreview();
+  });
+}
+function apCommit(isEdit) {
+  syncAppDraft();
+  const a = appsDraft;
+  if (!a.name.trim()) return toast("应用名称要填（只是内部标识，不会显示）");
+  if (!a.note.trim()) return toast("备注要填，它会显示在图标下面");
+  a.initial = a.initial || a.name.trim().slice(0, 1);
+  const groups = appGroupList();
+  if (!isEdit) {
+    let g = groups.find(x => x.id === a.group) || groups[0];
+    if (!g) { g = { id: appUid("g"), name: "默认", apps: [] }; groups.push(g); }
+    g.apps.push(Object.assign({}, a));
+  } else {
+    const f = findApp(a.id);
+    if (!f) return;
+    const target = groups.find(x => x.id === a.group) || f.g;
+    Object.assign(f.a, a);
+    if (target.id !== f.g.id) { f.g.apps.splice(f.i, 1); target.apps.push(f.a); }
+  }
+  closeModal();
+  appsSave();
+  toast(isEdit ? "已保存" : "已添加");
+}
+
+/* ---------- 事件绑定 ---------- */
+function bindAppsUI() {
+  const list = $("#appsList");
+  if (list) list.addEventListener("click", e => {
+    const gop = e.target.closest("[data-gop]");
+    if (gop) {
+      const g = appGroupList().find(x => x.id === gop.dataset.gid);
+      if (!g) return;
+      if (gop.dataset.gop === "rename") {
+        const name = prompt("分组名称", g.name);
+        if (name && name.trim()) { g.name = name.trim(); appsSave(); }
+      } else {
+        if (g.apps.length) return toast("这个分组还有应用，先移走或删掉");
+        if (!confirm("删除分组「" + g.name + "」？")) return;
+        Store.data.appGroups = appGroupList().filter(x => x.id !== g.id);
+        appsSave();
+      }
+      return;
+    }
+    const item = e.target.closest(".ap-item");
+    if (item) launchApp(item.dataset.id);
+  });
+  const edit = $("#appsEdit");
+  if (edit) edit.addEventListener("click", () => { appsEditing = !appsEditing; renderApps(); });
+  const add = $("#appsAdd");
+  if (add) add.addEventListener("click", () => openAppForm(null));
+  const gadd = $("#appsGroupAdd");
+  if (gadd) gadd.addEventListener("click", () => {
+    const name = prompt("新分组名称", "");
+    if (!name || !name.trim()) return;
+    appGroupList().push({ id: appUid("g"), name: name.trim(), apps: [] });
+    appsSave();
+    toast("分组已建，添加应用时选它就行");
+  });
+}
+
 function switchView(view) {
   $$(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
@@ -3375,6 +3700,8 @@ function switchView(view) {
     if (logMode === "review") renderReview(); else renderLog();
   } else if (view === "countdown") {
     renderCountdown();
+  } else if (view === "apps") {
+    renderApps();
   }
 }
 
@@ -3390,6 +3717,7 @@ function renderAll(scrollToNow = true) {
   renderCountdown();
   renderLog();
   if (logMode === "review") renderReview();
+  renderApps();
   updateSyncBadge();
 }
 
@@ -3650,6 +3978,9 @@ function init() {
   $$(".nav-item").forEach(btn =>
     btn.addEventListener("click", () => switchView(btn.dataset.view))
   );
+
+  /* 应用启动器 */
+  bindAppsUI();
 
   /* 今日 / 本周 切换 */
   bindWeekUI();
