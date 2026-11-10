@@ -102,10 +102,6 @@
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg></span>
         <span>待办</span>
       </button>
-      <button class="nav-item" data-view="apps">
-        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.6"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1.6"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1.6"/><rect x="14" y="14" width="6.5" height="6.5" rx="1.6"/></svg></span>
-        <span>应用</span>
-      </button>
       <button class="nav-item" data-view="log">
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14.8 3.6V7.6H18.8"/><path d="M8.4 12h7M8.4 15.6h4.6"/></svg></span>
         <span>记录</span>
@@ -297,23 +293,6 @@
           <input id="cdDate" class="input date-input" type="date" />
           <select id="cdSkill" class="input" title="关联技能（可选，会显示本周训练进度）"></select>
           <button id="cdAdd" class="btn primary" type="button">＋ 添加倒计时</button>
-        </div>
-      </section>
-
-      <!-- 应用启动器（wb-v10）：图标下面只显示用户写的备注 -->
-      <section id="view-apps" class="view">
-        <div class="section-head">
-          <h2>应用</h2>
-          <div class="ap-head">
-            <span class="hint" id="appsHint"></span>
-            <button id="appsEdit" class="btn ghost" type="button">编辑</button>
-          </div>
-        </div>
-        <p class="ap-tip">图标下面显示的是你自己写的备注。点图标会请求打开对应 App；没打开时可以用「去下载」。</p>
-        <div id="appsList"></div>
-        <div id="appsAddRow" class="ap-add-row hidden">
-          <button id="appsAdd" class="btn ghost" type="button">＋ 添加应用</button>
-          <button id="appsGroupAdd" class="btn ghost" type="button">＋ 新分组</button>
         </div>
       </section>
     </main>

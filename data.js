@@ -123,22 +123,7 @@ const DEFAULT_DATA = {
   reviews: {},
   /* 回收站：删除的数据不真删，先挪到这里，30 天内可恢复
      结构 { id, kind, label, deletedAt, item } */
-  trash: [],
-
-  /* 应用启动器（wb-v10）
-     groups[].apps[]：name 只是内部标识，note 才是图标下面唯一显示的文字。
-     scheme 各家 App 不同，一律留空由用户手填，不预置猜测值。
-     img 是压缩到 128px 的 dataURL，避免撑大 Gist。 */
-  appGroups: [
-    { id: "g-campus", name: "校园", apps: [
-      { id: "a-jrxy", name: "今日校园", note: "签到",     scheme: "", initial: "今", color: 0, img: "", download: "" },
-      { id: "a-yxy",  name: "易校园",   note: "校园缴费", scheme: "", initial: "易", color: 1, img: "", download: "" },
-      { id: "a-zhxl", name: "智慧笑联", note: "洗衣热水", scheme: "", initial: "智", color: 2, img: "", download: "" }
-    ]},
-    { id: "g-study", name: "学习", apps: [
-      { id: "a-xxt",  name: "学习通",   note: "学习打卡", scheme: "", initial: "学", color: 3, img: "", download: "" }
-    ]}
-  ]
+  trash: []
 };
 
 /* 给旧数据补齐新字段（训练记录 / 技能绑定 / 待办结束时间 / 流水），避免升级后读到 undefined */
@@ -154,10 +139,6 @@ function fillItemDefaults(d) {
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   /* 回收站：只保留结构正确的记录，丢掉脏数据 */
   d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);
-  /* 应用启动器：空数组是合法的（用户可能删光分组），不要强行恢复默认 */
-  d.appGroups = Array.isArray(d.appGroups)
-    ? d.appGroups.filter(g => g && Array.isArray(g.apps))
-    : JSON.parse(JSON.stringify(DEFAULT_DATA.appGroups));
   return d;
 }
 
@@ -187,10 +168,7 @@ const Store = {
       logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
       projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
       reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {},
-      trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : [],
-      appGroups: parsed && Array.isArray(parsed.appGroups)
-        ? parsed.appGroups
-        : JSON.parse(JSON.stringify(DEFAULT_DATA.appGroups))
+      trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : []
     };
     return fillItemDefaults(this.data);
   },
