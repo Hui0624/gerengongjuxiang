@@ -764,7 +764,21 @@ function todoItemHTML(t) {
 }
 
 function renderTodo() {
-  const list = $("#todoList"), quadView = $("#todoQuadView");
+  const list = $("#todoList"), quadView = $("#todoQuadView"), xxtView = $("#todoXxtView");
+  const addRow = $("#todoAddRow"), adv = $("#todoAdv"), headHint = $("#todoHeadHint");
+  if (todoMode === "xxt") {
+    list.classList.add("hidden");
+    quadView.classList.add("hidden");
+    xxtView.classList.remove("hidden");
+    if (addRow) addRow.classList.add("hidden");
+    if (adv) adv.classList.add("hidden");
+    if (headHint) headHint.textContent = "点「立即刷新」才去云端抓，不自动、不定时";
+    renderXxt();
+    return;
+  }
+  if (headHint) headHint.textContent = "设定时间后会出现在时间线上";
+  if (addRow) addRow.classList.remove("hidden");
+  xxtView.classList.add("hidden");
   if (todoMode === "quad") {
     list.classList.add("hidden");
     quadView.classList.remove("hidden");
@@ -1001,6 +1015,240 @@ function bindQuadDrag() {
     const item = tag.closest(".todo-item");
     if (item) openQuadMenu(tag, item.dataset.id);
   });
+}
+
+/* =========================================================
+   学习通作业（wb-v12）
+   - 单独视图，不做定时任务、不在打开时自动抓
+   - 只有用户点「立即刷新」才请求云端 Worker
+   - 15 分钟缓存只提示不硬拦；失败保留旧数据、不假更新同步时刻
+   - 手动改过的状态（manual）刷新时保留，不被服务端覆盖
+   - 发布时间抓不到就留空显示「—」，绝不编造
+   ========================================================= */
+const XXT_CACHE_MS = 15 * 60 * 1000;
+const XXT_SYNC_KEY = "wb_xxt_last_sync";
+let xxtFilter = "all";
+let xxtBusy = false;
+let xxtTimer = null;
+
+function xxtSettings() { return (Store.data && Store.data.settings) || {}; }
+function xxtLastSync() {
+  try { return Number(localStorage.getItem(XXT_SYNC_KEY)) || 0; } catch (e) { return 0; }
+}
+function xxtSetSync(ts) {
+  try { localStorage.setItem(XXT_SYNC_KEY, String(ts)); } catch (e) {}
+}
+function xxtMd(ts) {
+  const d = new Date(ts);
+  return (d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+function xxtHm(ts) {
+  const d = new Date(ts);
+  return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+}
+function xxtRemaining(due) {
+  const diff = due - Date.now();
+  if (!due) return { text: "未设截止" };
+  if (diff <= 0) return { text: "已截止", over: true };
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  return { text: d > 0 ? ("剩 " + d + " 天 " + h + " 小时") : ("剩 " + h + " 小时"), urgent: d <= 3 };
+}
+
+function renderXxt() {
+  const box = $("#xxtList");
+  if (!box) return;
+  const items = Array.isArray(Store.data.assignments) ? Store.data.assignments : [];
+  const pending = items.filter(x => x.status === "pending");
+  const done = items.filter(x => x.status === "done");
+  $("#xxtPending").textContent = pending.length;
+  $("#xxtSoon").textContent = pending.filter(x => {
+    const d = (x.due - Date.now()) / 86400000;
+    return x.due && d >= 0 && d <= 3;
+  }).length;
+  $("#xxtDone").textContent = done.length;
+
+  const last = xxtLastSync();
+  const left = XXT_CACHE_MS - (Date.now() - last);
+  const timeText = last ? ("最近同步 " + pad2(new Date(last).getHours()) + ":" + pad2(new Date(last).getMinutes())) : "尚未同步";
+  $("#xxtSyncTime").textContent = timeText;
+  $("#xxtCache").textContent = (last && left > 0) ? ("缓存 " + Math.ceil(left / 60000) + " 分钟") : "点按钮即刷新";
+
+  const shown = items
+    .filter(x => xxtFilter === "all" || x.status === xxtFilter)
+    .slice().sort((a, b) => {
+      if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
+      const now = Date.now();
+      const ao = (!a.due || a.due < now) ? 1 : 0, bo = (!b.due || b.due < now) ? 1 : 0;
+      if (ao !== bo) return ao - bo;
+      return ao ? (b.due || 0) - (a.due || 0) : (a.due || 0) - (b.due || 0);
+    });
+
+  box.innerHTML = shown.length ? shown.map(x => {
+    const rem = xxtRemaining(x.due);
+    const cls = x.status === "done" ? "done" : (rem.urgent || rem.over ? "urgent" : "");
+    return '<div class="xxt-card ' + cls + '" data-id="' + esc(x.id) + '">' +
+      '<div class="xxt-top">' +
+        '<span class="xxt-course">' + esc(x.course || "未分科目") + '</span>' +
+        '<button type="button" class="xxt-badge ' + x.status + '" data-xact="status" data-id="' + esc(x.id) + '">' +
+          (x.status === "done" ? "已交" : "未交") + (x.manual ? '<span class="manual">·手动</span>' : "") +
+        '</button>' +
+        '<button type="button" class="xxt-del" data-xact="del" data-id="' + esc(x.id) + '" title="删除">✕</button>' +
+      '</div>' +
+      '<div class="xxt-title">' + esc(x.title) + '</div>' +
+      '<div class="xxt-meta">' +
+        (x.pub ? '<span>发布 ' + esc(x.pub) + '</span>' : '<span class="none">发布 —</span>') +
+        (x.due ? '<span>截止 ' + xxtMd(x.due) + " " + xxtHm(x.due) + '</span>' : '<span class="none">截止 —</span>') +
+      '</div>' +
+      '<div class="xxt-foot-line">' + (x.status === "done" ? "已完成 · " : "") + rem.text + '</div>' +
+    '</div>';
+  }).join("") : '<div class="empty-hint">还没有作业。点「立即刷新」抓一次，或「手动添加」自己录一条。</div>';
+}
+
+/* 手动改状态：打 manual 标记，刷新不会覆盖 */
+function xxtSetStatus(id) {
+  const a = (Store.data.assignments || []).find(x => x.id === id);
+  if (!a) return;
+  a.status = a.status === "done" ? "pending" : "done";
+  a.manual = true;
+  Store.save();
+  renderXxt();
+  toast(a.status === "done" ? "已标为已交（手动）" : "已标为未交（手动）");
+}
+
+function xxtNotice(el, on) { if (el) el.classList.toggle("hidden", !on); }
+
+async function xxtRefresh(force) {
+  if (xxtBusy) return;
+  const cfg = xxtSettings();
+  const cacheNote = $("#xxtCacheNote"), errNote = $("#xxtErrNote");
+  xxtNotice(errNote, false);
+
+  if (!cfg.xxtWorker) {
+    toast("还没配置云端地址，先去设置里填");
+    openSettings();
+    return;
+  }
+  const last = xxtLastSync();
+  if (!force && last && Date.now() - last < XXT_CACHE_MS) {
+    xxtNotice(cacheNote, true);
+    return;                       /* 只提示，不硬拦 */
+  }
+  xxtNotice(cacheNote, false);
+
+  xxtBusy = true;
+  const btn = $("#xxtRefresh");
+  btn.disabled = true; btn.textContent = "正在连接…";
+  $("#xxtProgress").classList.add("on");
+  try {
+    const url = cfg.xxtWorker + (cfg.xxtWorker.indexOf("?") > -1 ? "&" : "?") + "force=" + (force ? 1 : 0);
+    const r = await fetch(url, { headers: { "X-Workbench-Key": cfg.xxtKey || "" } });
+    if (!r.ok) throw new Error("云端返回 HTTP " + r.status);
+    const data = await r.json();
+    if (!data || data.ok !== true || !Array.isArray(data.items)) {
+      throw new Error(data && data.error ? data.error : "云端返回格式不对");
+    }
+    /* 保留手动改过的状态 */
+    const manual = {};
+    (Store.data.assignments || []).forEach(a => { if (a.manual) manual[a.id] = a.status; });
+    const seen = {};
+    Store.data.assignments = data.items
+      .filter(a => a && a.id && a.title)
+      .map(a => {
+        seen[a.id] = 1;
+        const y = {
+          id: String(a.id), course: a.course || "", title: String(a.title),
+          pub: a.pub || "", due: Number(a.due) || 0,
+          status: a.status === "done" ? "done" : "pending", manual: !!manual[a.id]
+        };
+        if (manual[a.id]) y.status = manual[a.id];
+        return y;
+      });
+    xxtSetSync(Date.now());
+    Store.save();
+    renderXxt();
+    toast("已更新 · " + Store.data.assignments.length + " 条作业");
+  } catch (e) {
+    $("#xxtErrText").textContent = "没连上云端（" + (e.message || "未知错误") + "）";
+    xxtNotice(errNote, true);     /* 失败不更新同步时刻、保留旧数据 */
+  } finally {
+    xxtBusy = false;
+    btn.disabled = false; btn.textContent = "↻ 立即刷新";
+    $("#xxtProgress").classList.remove("on");
+  }
+}
+
+/* 手动添加：没配 Worker 时也能用 */
+function xxtOpenAdd() {
+  const now = new Date();
+  const defDue = new Date(now.getTime() + 3 * 86400000);
+  const html =
+    '<div class="field"><label>科目</label><input class="input" id="xaCourse" placeholder="例如 嵌入式原理"></div>' +
+    '<div class="field"><label>作业名称</label><input class="input" id="xaTitle" placeholder="例如 实验报告二"></div>' +
+    '<div class="field"><label>发布日期（可留空，抓不到就不填）</label><input class="input" id="xaPub" type="date"></div>' +
+    '<div class="field"><label>截止时间</label><input class="input" id="xaDue" type="datetime-local" value="' +
+      defDue.getFullYear() + "-" + pad2(defDue.getMonth() + 1) + "-" + pad2(defDue.getDate()) +
+      "T" + pad2(defDue.getHours()) + ":" + pad2(defDue.getMinutes()) + '"></div>' +
+    '<div class="field"><label>状态</label><select class="input" id="xaStatus">' +
+      '<option value="pending">未交</option><option value="done">已交</option></select></div>' +
+    '<div class="modal-actions"><button class="btn primary" id="xaSave" type="button">添加</button></div>';
+  openModal("手动添加作业", html, body => {
+    $("#xaSave", body).addEventListener("click", () => {
+      const title = $("#xaTitle", body).value.trim();
+      if (!title) return toast("作业名称要填");
+      const dueVal = $("#xaDue", body).value;
+      const pubVal = $("#xaPub", body).value;
+      Store.data.assignments.push({
+        id: "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        course: $("#xaCourse", body).value.trim(),
+        title,
+        pub: pubVal ? (Number(pubVal.slice(5, 7)) + "-" + pubVal.slice(8, 10)) : "",
+        due: dueVal ? new Date(dueVal).getTime() : 0,
+        status: $("#xaStatus", body).value,
+        manual: true
+      });
+      Store.save(); renderXxt(); closeModal(); toast("已添加");
+    });
+  });
+}
+
+function bindXxtUI() {
+  const refreshBtn = $("#xxtRefresh");
+  if (refreshBtn) refreshBtn.addEventListener("click", () => xxtRefresh(false));
+  const force = $("#xxtForce");
+  if (force) force.addEventListener("click", () => { xxtNotice($("#xxtCacheNote"), false); xxtRefresh(true); });
+  const retry = $("#xxtRetry");
+  if (retry) retry.addEventListener("click", () => { xxtNotice($("#xxtErrNote"), false); xxtRefresh(true); });
+  const filters = $("#xxtFilters");
+  if (filters) filters.addEventListener("click", e => {
+    const b = e.target.closest("[data-f]");
+    if (!b) return;
+    xxtFilter = b.dataset.f;
+    $$("#xxtFilters button").forEach(x => x.classList.toggle("on", x === b));
+    renderXxt();
+  });
+  const list = $("#xxtList");
+  if (list) list.addEventListener("click", e => {
+    const b = e.target.closest("[data-xact]");
+    if (!b) return;
+    if (b.dataset.xact === "status") return xxtSetStatus(b.dataset.id);
+    if (b.dataset.xact === "del") {
+      const a = (Store.data.assignments || []).find(x => x.id === b.dataset.id);
+      if (!a || !confirm("删除作业「" + a.title + "」？")) return;
+      Store.data.assignments = Store.data.assignments.filter(x => x.id !== b.dataset.id);
+      Store.save({ snapshot: true, label: "删除作业" });
+      renderXxt(); toast("已删除");
+    }
+  });
+  const add = $("#xxtAdd");
+  if (add) add.addEventListener("click", xxtOpenAdd);
+  xxtTimer = setInterval(() => {
+    if (!xxtBusy && $("#xxtCache")) {
+      const last = xxtLastSync(), left = XXT_CACHE_MS - (Date.now() - last);
+      $("#xxtCache").textContent = (last && left > 0)
+        ? ("缓存 " + Math.ceil(left / 60000) + " 分钟") : "点按钮即刷新";
+    }
+  }, 30000);
 }
 
 /* 中文自然语言解析：把「明天下午3点半 交作业」拆成日期 / 时间 / 象限 */
@@ -2119,7 +2367,11 @@ function normalizeData(obj) {
       ? obj.reviews
       : ((cur && cur.reviews) || {}),
     /* 回收站也跟数据走：换设备后仍能恢复；云端没有就沿用本地的 */
-    trash: arr(obj.trash, cur && cur.trash)
+    trash: arr(obj.trash, cur && cur.trash),
+    /* 学习通作业：云端是旧版没有这个字段时沿用本地，避免被清空 */
+    assignments: Array.isArray(obj.assignments)
+      ? obj.assignments
+      : (Array.isArray(cur && cur.assignments) ? cur.assignments : [])
   };
   return fillItemDefaults(out);
 }
@@ -2171,6 +2423,18 @@ function openSettings() {
     </div>
     <div id="aiMsg" class="sync-msg"></div>
 
+    <h4>学习通作业（云端抓取）</h4>
+    <p>填你自己部署的 Worker 地址和调用密钥。<strong>这里不填学习通账号密码</strong>——密码只放在 Worker 的加密 Secret 里。地址和密钥会随云同步，手机也能用。没配置时作业视图仍可手动添加。</p>
+    <div class="field"><label>Worker 地址</label>
+      <input class="input" id="xxtWorker" placeholder="https://xxx.workers.dev" value="${esc(xxtSettings().xxtWorker || "")}"></div>
+    <div class="field"><label>调用密钥（X-Workbench-Key）</label>
+      <input class="input" id="xxtKey" type="password" placeholder="自己设一串，和 Worker 里填的一样" value="${esc(xxtSettings().xxtKey || "")}"></div>
+    <div class="modal-actions">
+      <button class="btn" id="xxtTest" type="button">测试连接</button>
+      <button class="btn primary" id="xxtSave" type="button">保存</button>
+    </div>
+    <div id="xxtMsg" class="sync-msg"></div>
+
     <h4>周主题</h4>
     <p>每周自动聚焦一个技能来学；也能给本周指定一个技能 + 一句目标。设置会随云同步，电脑手机一致。</p>
     <div class="modal-actions"><button class="btn" id="wtOpen">设置本周主题</button></div>
@@ -2210,6 +2474,32 @@ function openSettings() {
 
   openModal("设置", html, body => {
     const msg = $("#ghMsg", body);
+
+    /* 学习通作业：Worker 地址 / 调用密钥 */
+    const xmsg = $("#xxtMsg", body);
+    $("#xxtSave", body).addEventListener("click", () => {
+      Store.data.settings.xxtWorker = $("#xxtWorker", body).value.trim();
+      Store.data.settings.xxtKey = $("#xxtKey", body).value.trim();
+      Store.save();
+      xmsg.textContent = "已保存。回「学习通作业」点立即刷新试试。";
+    });
+    $("#xxtTest", body).addEventListener("click", async () => {
+      const url = $("#xxtWorker", body).value.trim();
+      const key = $("#xxtKey", body).value.trim();
+      if (!url) { xmsg.textContent = "先填 Worker 地址"; return; }
+      xmsg.textContent = "正在测试…";
+      try {
+        const r = await fetch(url + (url.indexOf("?") > -1 ? "&" : "?") + "ping=1", {
+          headers: { "X-Workbench-Key": key }
+        });
+        const j = await r.json();
+        xmsg.textContent = r.ok && j.ok !== false
+          ? "连接正常 ✅（可以回作业页点刷新）"
+          : ("连上了但返回异常：" + (j.error || r.status));
+      } catch (e) {
+        xmsg.textContent = "连不上：" + (e.message || "网络错误");
+      }
+    });
 
     $("#themeOpen", body).addEventListener("click", openThemeModal);
 
@@ -3865,6 +4155,7 @@ function init() {
   bindTodoClicks("#todoList", ".todo-item");
   bindTodoClicks("#todoQuadView", ".quad-item");
   bindQuadDrag();
+  bindXxtUI();
   const todoSeg = $("#todoSeg");
   if (todoSeg) todoSeg.addEventListener("click", e => {
     const b = e.target.closest(".seg-btn");

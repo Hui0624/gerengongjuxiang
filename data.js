@@ -43,6 +43,9 @@ const DEFAULT_DATA = {
     termStart: "",
     /* 周主题：按周号存覆盖项，例如 { "12": { skillId: "s1", goal: "跑通 I2C", target: 5 } }；留空则该周自动轮转技能 */
     weekThemes: {},
+    /* 学习通作业：Worker 地址与调用密钥。都不含学习通账号密码 */
+    xxtWorker: "",
+    xxtKey: "",
     /* 时间线显示时段（小时）。tlStart 可 0~12，tlEnd 可 12~24 */
     tlStart: 6,
     tlEnd: 24,
@@ -123,7 +126,12 @@ const DEFAULT_DATA = {
   reviews: {},
   /* 回收站：删除的数据不真删，先挪到这里，30 天内可恢复
      结构 { id, kind, label, deletedAt, item } */
-  trash: []
+  trash: [],
+  /* 学习通作业（wb-v12）
+     { id, course, title, pub, due, status, manual }
+     pub 为发布日期字符串，抓不到就留空，界面显示「—」，绝不编造。
+     due 为截止时间戳（毫秒）；status: pending | done；manual 表示用户手动改过，刷新不覆盖。 */
+  assignments: []
 };
 
 /* 给旧数据补齐新字段（训练记录 / 技能绑定 / 待办结束时间 / 流水），避免升级后读到 undefined */
@@ -139,6 +147,9 @@ function fillItemDefaults(d) {
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   /* 回收站：只保留结构正确的记录，丢掉脏数据 */
   d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);
+  d.assignments = (Array.isArray(d.assignments) ? d.assignments : [])
+    .filter(a => a && a.id && a.title)
+    .map(a => Object.assign({ pub: "", due: 0, status: "pending", manual: false, course: "" }, a));
   return d;
 }
 
@@ -168,7 +179,8 @@ const Store = {
       logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
       projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
       reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {},
-      trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : []
+      trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : [],
+      assignments: parsed && Array.isArray(parsed.assignments) ? parsed.assignments : []
     };
     return fillItemDefaults(this.data);
   },

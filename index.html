@@ -206,10 +206,11 @@
           <div class="seg" id="todoSeg">
             <button class="seg-btn active" data-mode="list">列表</button>
             <button class="seg-btn" data-mode="quad">四象限</button>
+            <button class="seg-btn" data-mode="xxt">学习通作业</button>
           </div>
-          <span class="hint">设定时间后会出现在时间线上</span>
+          <span class="hint" id="todoHeadHint">设定时间后会出现在时间线上</span>
         </div>
-        <div class="todo-add">
+        <div class="todo-add" id="todoAddRow">
           <input id="todoText" class="input todo-quick" placeholder="试试：明天下午3点 交作业（回车即加）" />
           <button id="todoMore" class="btn ghost" type="button" title="日期 / 时间 / 优先级">更多</button>
           <button id="todoAdd" class="btn primary" type="button">添加</button>
@@ -227,6 +228,40 @@
         </div>
         <div id="todoList" class="todo-list"></div>
         <div id="todoQuadView" class="todo-quad hidden"></div>
+
+        <!-- 学习通作业（wb-v12）：单独视图，手动点「立即刷新」才去云端抓 -->
+        <div id="todoXxtView" class="xxt-view hidden">
+          <div class="xxt-stats">
+            <div class="xxt-stat hi"><b id="xxtPending">0</b><span>未交</span></div>
+            <div class="xxt-stat warn"><b id="xxtSoon">0</b><span>3 天内到期</span></div>
+            <div class="xxt-stat"><b id="xxtDone">0</b><span>已交</span></div>
+          </div>
+
+          <div class="xxt-refresh">
+            <div class="xxt-rf-row">
+              <button id="xxtRefresh" class="btn primary" type="button">↻ 立即刷新</button>
+              <div class="xxt-rf-meta">
+                <b id="xxtSyncTime">尚未同步</b>
+                <span id="xxtCache"></span>
+              </div>
+            </div>
+            <div class="xxt-progress" id="xxtProgress"><i></i></div>
+            <div class="xxt-notice cache hidden" id="xxtCacheNote">刚更新过 · <button type="button" id="xxtForce">仍要刷新</button></div>
+            <div class="xxt-notice err hidden" id="xxtErrNote"><span id="xxtErrText">抓取失败</span> · <button type="button" id="xxtRetry">重试</button></div>
+          </div>
+
+          <div class="xxt-toolbar">
+            <div class="xxt-filters" id="xxtFilters">
+              <button type="button" class="on" data-f="all">全部</button>
+              <button type="button" data-f="pending">未交</button>
+              <button type="button" data-f="done">已交</button>
+            </div>
+            <button type="button" class="btn ghost" id="xxtAdd">＋ 手动添加</button>
+          </div>
+
+          <div id="xxtList"></div>
+          <div class="xxt-foot">发布时间抓不到就显示「—」，不编造 · 手动改过的状态不会被刷新覆盖</div>
+        </div>
       </section>
 
       <!-- 记录 / 沉淀 -->

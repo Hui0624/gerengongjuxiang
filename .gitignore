@@ -3,3 +3,12 @@
 node_modules/
 *.log
 .DS_Store
+
+# 飞书提醒的密钥（webhook / token / gistId），绝不进公开仓库
+飞书提醒/secrets.json
+
+# 应用启动器补丁包：本地存档，以后 APK 做好再启用，不上传
+应用启动器-补丁包/
+
+# 学习通作业 Worker：代码粘到 Cloudflare 后台，不放 Pages 上
+学习通作业/

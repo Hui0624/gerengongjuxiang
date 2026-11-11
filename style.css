@@ -1792,3 +1792,71 @@ body.quad-dragging { user-select: none; }
   .qi-grip { width: 20px; font-size: 13px; }
 }
 
+/* =========================================================
+   学习通作业 wb-v12：单独视图 / 手动刷新
+   ========================================================= */
+#todoSeg .seg-btn { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+@media (max-width: 560px) {
+  #todoSeg .seg-btn { padding-left: 6px; padding-right: 6px; font-size: 11.5px; }
+  .section-head #todoHeadHint { display: none; }
+}
+
+.xxt-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+.xxt-stat { flex: 1; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 11px; padding: 10px 12px; }
+.xxt-stat b { display: block; font-size: 20px; line-height: 1.25; }
+.xxt-stat span { font-size: 10.5px; color: var(--muted); }
+.xxt-stat.hi b { color: var(--green); }
+.xxt-stat.warn b { color: var(--orange); }
+
+.xxt-refresh { background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px 12px; margin-bottom: 12px; }
+.xxt-rf-row { display: flex; align-items: center; gap: 10px; }
+.xxt-rf-row .btn { flex: 1; }
+.xxt-rf-meta { flex: 0 0 auto; text-align: right; font-size: 10px; color: var(--muted); line-height: 1.5; }
+.xxt-rf-meta b { display: block; font-size: 11px; color: var(--text-2); font-weight: 600; }
+.xxt-progress { height: 3px; border-radius: 3px; background: var(--border);
+  margin-top: 10px; overflow: hidden; display: none; }
+.xxt-progress.on { display: block; }
+.xxt-progress i { display: block; height: 100%; width: 35%; background: var(--green);
+  border-radius: 3px; animation: xxtSlide 1.1s ease-in-out infinite; }
+@keyframes xxtSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
+.xxt-notice { margin-top: 9px; font-size: 11.5px; border-radius: 8px;
+  padding: 8px 10px; line-height: 1.6; }
+.xxt-notice.cache { background: var(--green-soft); color: var(--green); }
+.xxt-notice.err { background: var(--red-soft); color: var(--red); }
+.xxt-notice button { font: inherit; font-size: 11px; font-weight: 700; background: transparent;
+  border: 0; color: inherit; text-decoration: underline; cursor: pointer; padding: 0 0 0 6px; }
+
+.xxt-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.xxt-filters { display: flex; gap: 6px; flex: 1; }
+.xxt-filters button { font: inherit; font-size: 11px; padding: 5px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
+.xxt-filters button.on { background: var(--green-soft); border-color: var(--green);
+  color: var(--green); font-weight: 700; }
+.xxt-toolbar .btn { font-size: 11.5px; padding: 6px 10px; }
+
+.xxt-card { background: var(--panel); border: 1px solid var(--border); border-radius: 13px;
+  padding: 12px 13px; margin-bottom: 9px; border-left: 3px solid var(--green); }
+.xxt-card.urgent { border-left-color: var(--orange); }
+.xxt-card.done { border-left-color: var(--muted); opacity: .72; }
+.xxt-top { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.xxt-course { font-size: 10.5px; font-weight: 700; color: var(--green);
+  background: var(--green-soft); padding: 2px 7px; border-radius: 5px; }
+.xxt-badge { margin-left: auto; font: inherit; font-size: 10.5px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px; border: 0; cursor: pointer; }
+.xxt-badge.pending { background: var(--orange-soft); color: var(--orange); }
+.xxt-badge.done { background: var(--hover-bg); color: var(--muted); }
+.xxt-badge .manual { font-weight: 400; opacity: .8; margin-left: 3px; }
+.xxt-del { border: 0; background: transparent; color: var(--muted); font-size: 12px;
+  padding: 3px 5px; border-radius: 6px; cursor: pointer; }
+.xxt-del:hover { color: var(--red); background: var(--red-soft); }
+.xxt-title { font-size: 13.5px; font-weight: 600; line-height: 1.45; margin-bottom: 8px; }
+.xxt-card.done .xxt-title { text-decoration: line-through; color: var(--muted); }
+.xxt-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; font-size: 11px; color: var(--muted); }
+.xxt-meta .none { opacity: .55; }
+.xxt-foot-line { margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--green); }
+.xxt-card.urgent .xxt-foot-line { color: var(--orange); }
+.xxt-card.done .xxt-foot-line { color: var(--muted); }
+.xxt-foot { text-align: center; font-size: 10.5px; color: var(--muted); line-height: 1.7; margin-top: 14px; }
+
