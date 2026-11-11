@@ -259,8 +259,19 @@
             <button type="button" class="btn ghost" id="xxtAdd">＋ 手动添加</button>
           </div>
 
+          <details class="xxt-import">
+            <summary>📥 导入浏览器里抓取的真实请求（推荐，能真正拿到数据）</summary>
+            <p class="xxt-import-hint">学习通账号密码自动抓取会被「无权限」拦截（它的 enc 是跟随浏览器会话的动态签名）。改用这个：电脑浏览器登录学习通 → 进课程 → 作业 → 按 F12 打开 Network → 点作业标签 → 找到 <code>work/list</code> 那条 → 右键 <b>Copy → Copy as cURL</b> → 整段粘到下面即可（Cookie 也能单独粘）。导入的是当前快照，想更新就再抓一次。</p>
+            <div class="field"><label>work/list 的 cURL 或完整 URL</label><textarea id="xxtCapUrl" class="input" rows="3" placeholder="直接粘贴整段 curl 'https://mooc1.chaoxing.com/mooc2/work/list?...' -H 'Cookie: ...' ..."></textarea></div>
+            <div class="field"><label>Cookie（仅当你把 URL 和 Cookie 分开粘时填）</label><textarea id="xxtCapCookie" class="input" rows="2" placeholder="留空就自动从上面 cURL 里取"></textarea></div>
+            <div class="xxt-import-actions">
+              <button id="xxtCapBtn" class="btn primary" type="button">导入</button>
+              <span id="xxtCapMsg" class="xxt-cap-msg"></span>
+            </div>
+          </details>
+
           <div id="xxtList"></div>
-          <div class="xxt-foot">发布时间抓不到就显示「—」，不编造 · 手动改过的状态不会被刷新覆盖</div>
+          <div class="xxt-foot">发布时间抓不到就显示「—」，不编造 · 手动改过的状态、导入的快照都不会被刷新覆盖</div>
         </div>
       </section>
 

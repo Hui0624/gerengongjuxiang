@@ -1148,22 +1148,23 @@ async function xxtRefresh(force) {
     if (!data || data.ok !== true || !Array.isArray(data.items)) {
       throw new Error(data && data.error ? data.error : "云端返回格式不对");
     }
-    /* 保留手动改过的状态 */
-    const manual = {};
-    (Store.data.assignments || []).forEach(a => { if (a.manual) manual[a.id] = a.status; });
-    const seen = {};
-    Store.data.assignments = data.items
+    /* 保留手动改过的状态；自动抓取成功时也不冲掉手动添加 / 导入的快照 */
+    const manualMap = {};
+    (Store.data.assignments || []).forEach(a => { if (a.manual) manualMap[a.id] = a; });
+    const fetched = data.items
       .filter(a => a && a.id && a.title)
       .map(a => {
-        seen[a.id] = 1;
         const y = {
           id: String(a.id), course: a.course || "", title: String(a.title),
           pub: a.pub || "", due: Number(a.due) || 0,
-          status: a.status === "done" ? "done" : "pending", manual: !!manual[a.id]
+          status: a.status === "done" ? "done" : "pending", manual: false
         };
-        if (manual[a.id]) y.status = manual[a.id];
+        if (manualMap[a.id]) y.status = manualMap[a.id].status;
         return y;
       });
+    const fetchedIds = new Set(fetched.map(a => a.id));
+    const kept = (Store.data.assignments || []).filter(a => a.manual && !fetchedIds.has(a.id));
+    Store.data.assignments = fetched.concat(kept);
     xxtSetSync(Date.now());
     Store.save();
     renderXxt();
@@ -1179,8 +1180,7 @@ async function xxtRefresh(force) {
 }
 
 /* 手动添加：没配 Worker 时也能用 */
-function xxtOpenAdd() {
-  const now = new Date();
+function xxtOpenAdd() {  const now = new Date();
   const defDue = new Date(now.getTime() + 3 * 86400000);
   const html =
     '<div class="field"><label>科目</label><input class="input" id="xaCourse" placeholder="例如 嵌入式原理"></div>' +
@@ -1210,6 +1210,70 @@ function xxtOpenAdd() {
       Store.save(); renderXxt(); closeModal(); toast("已添加");
     });
   });
+}
+
+/* 从 cURL 里抠出 work/list 的 URL 和 Cookie（支持整段粘贴 cURL，也支持单独粘 URL）*/
+function parseCurlCapture(text) {
+  let url = null, cookie = null;
+  const um = text.match(/['"](https?:\/\/[^'"]+)['"]/);
+  if (um) url = um[1];
+  const ck = text.match(/-H\s+['"]Cookie:\s*([^'"]+)['"]/i) ||
+             text.match(/(?:--cookie\s+|-b\s+)(['"])([^'"]+)\1/i);
+  if (ck) cookie = ck[1];
+  return { url, cookie };
+}
+
+/* 导入浏览器抓取请求：调 Worker 的 capture 重放模式，解析后存为手动快照 */
+async function xxtImportCapture() {
+  const cfg = xxtSettings();
+  const msg = $("#xxtCapMsg");
+  if (!cfg.xxtWorker) { toast("先去设置里填 Worker 地址和密钥"); openSettings(); return; }
+  const raw = ($("#xxtCapUrl").value || "").trim();
+  const cookieField = ($("#xxtCapCookie").value || "").trim();
+  if (!raw) { if (msg) msg.textContent = "先粘贴 cURL 或完整 URL"; return; }
+  let url, cookie;
+  if (/curl/i.test(raw)) {
+    const p = parseCurlCapture(raw);
+    url = p.url; cookie = cookieField || p.cookie;
+  } else { url = raw; cookie = cookieField; }
+  if (!url || !cookie) { if (msg) msg.textContent = "没解析出 URL 或 Cookie（cURL 里要含 Cookie 头）"; return; }
+
+  const btn = $("#xxtCapBtn");
+  btn.disabled = true; btn.textContent = "导入中…";
+  if (msg) msg.textContent = "";
+  try {
+    const u = cfg.xxtWorker + (cfg.xxtWorker.indexOf("?") > -1 ? "&" : "?") + "capture=1";
+    const r = await fetch(u, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Workbench-Key": cfg.xxtKey || "" },
+      body: JSON.stringify({ url, cookie })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!data || data.ok !== true || !Array.isArray(data.items)) {
+      throw new Error(data && data.error ? data.error : "云端返回格式不对");
+    }
+    const imported = data.items
+      .filter(a => a && a.id && a.title)
+      .map(a => ({
+        id: "cap-" + String(a.id),
+        course: a.course || "", title: String(a.title),
+        pub: a.pub || "", due: Number(a.due) || 0,
+        status: a.status === "done" ? "done" : "pending",
+        manual: true
+      }));
+    const existing = (Store.data.assignments || []).filter(a => a.manual && !imported.some(i => i.id === a.id));
+    Store.data.assignments = imported.concat(existing);
+    xxtSetSync(Date.now());
+    Store.save();
+    renderXxt();
+    if (msg) msg.textContent = "导入成功 · " + imported.length + " 条（已存为手动快照，刷新不覆盖）";
+    toast("已导入 " + imported.length + " 条作业");
+    $("#xxtCapUrl").value = ""; $("#xxtCapCookie").value = "";
+  } catch (e) {
+    if (msg) msg.textContent = "导入失败：" + (e.message || "未知错误");
+  } finally {
+    btn.disabled = false; btn.textContent = "导入";
+  }
 }
 
 function bindXxtUI() {
@@ -1242,6 +1306,8 @@ function bindXxtUI() {
   });
   const add = $("#xxtAdd");
   if (add) add.addEventListener("click", xxtOpenAdd);
+  const capBtn = $("#xxtCapBtn");
+  if (capBtn) capBtn.addEventListener("click", xxtImportCapture);
   xxtTimer = setInterval(() => {
     if (!xxtBusy && $("#xxtCache")) {
       const last = xxtLastSync(), left = XXT_CACHE_MS - (Date.now() - last);
@@ -2425,6 +2491,7 @@ function openSettings() {
 
     <h4>学习通作业（云端抓取）</h4>
     <p>填你自己部署的 Worker 地址和调用密钥。<strong>这里不填学习通账号密码</strong>——密码只放在 Worker 的加密 Secret 里。地址和密钥会随云同步，手机也能用。没配置时作业视图仍可手动添加。</p>
+    <p class="hint">⚠️ 学习通的「账号密码自动抓取」会被「无权限」拦截（它的接口签名 enc 跟随浏览器会话、带时效，服务端重放必然失败）。<strong>真正能拿到数据的办法</strong>：去「学习通作业」视图，展开「📥 导入浏览器里抓取的真实请求」，把浏览器 F12 里复制的 <code>work/list</code> cURL 粘进去。导入的是当前快照，想更新就再抓一次。</p>
     <div class="field"><label>Worker 地址</label>
       <input class="input" id="xxtWorker" placeholder="https://xxx.workers.dev" value="${esc(xxtSettings().xxtWorker || "")}"></div>
     <div class="field"><label>调用密钥（X-Workbench-Key）</label>
