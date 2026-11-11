@@ -754,7 +754,7 @@ function todoItemHTML(t) {
     <div class="ti-body">
       <div class="ti-text">${esc(t.text)}</div>
       <div class="ti-tags">
-        <span class="ti-tag ${q.cls}">${q.name}</span>
+        <span class="ti-tag ${q.cls}" data-act="quad" role="button" tabindex="0" title="点一下改象限">${q.name} ▾</span>
         ${t.date ? `<span class="ti-date">📅 ${fmtDateShort(t.date)}</span>` : ""}
         ${t.time ? `<span class="ti-time">⏰ ${t.time}${t.end ? "–" + t.end : ""}</span>` : ""}
       </div>
@@ -817,7 +817,7 @@ function renderTodoQuad() {
   quadView.innerHTML = [1, 2, 3, 4].map(qn => {
     const q = QUADS[qn];
     const list = items.filter(t => (t.quad || 2) === qn);
-    return `<div class="quad-cell ${q.cls}">
+    return `<div class="quad-cell ${q.cls}" data-quad="${qn}">
       <div class="quad-head">
         <span class="quad-title">${q.name}</span>
         <span class="quad-tip">${q.tip}</span>
@@ -826,6 +826,7 @@ function renderTodoQuad() {
       <div class="quad-body">
         ${list.length ? list.map(t => `
           <div class="quad-item" data-id="${t.id}">
+            <span class="qi-grip" title="按住拖动改象限">⋮⋮</span>
             <button class="check sm" data-act="toggle" title="完成">✓</button>
             <div class="qi-body">
               <div class="qi-text">${esc(t.text)}</div>
@@ -836,6 +837,170 @@ function renderTodoQuad() {
       </div>
     </div>`;
   }).join("");
+}
+
+/* =========================================================
+   象限调整（wb-v11）
+   - 列表：点彩色象限标签弹下拉
+   - 四象限：拖拽（桌面整条可拖；触屏按住左侧把手，其余区域留给页面滚动）
+   - 一律改 t.quad 数据再整体重渲染：列表标签、四象限格子/计数、
+     首页「现在专注」、时间线、排序、Gist 同步全部自动跟着变
+   ========================================================= */
+function setTodoQuad(id, qn) {
+  const t = Store.data.todos.find(x => x.id === id);
+  if (!t || !QUADS[qn]) return;
+  const from = t.quad || 2;
+  if (from === qn) return;
+  t.quad = qn;
+  Store.save({ snapshot: true, label: "调整待办象限" });
+  renderTodo();
+  renderHome();
+  renderTimeline();
+  renderNextCard();
+  toast("已移到「" + QUADS[qn].name + "」");
+}
+
+/* ---------- 列表视图：点彩色标签弹下拉 ---------- */
+let quadMenu = null;
+function onQuadMenuOutside(e) {
+  const t = e.target;
+  if (!quadMenu) return;
+  const inMenu = quadMenu.contains(t);
+  const onTag = t && t.closest && t.closest('[data-act="quad"]');
+  if (!inMenu && !onTag) closeQuadMenu();
+}
+function closeQuadMenu() {
+  if (quadMenu) { quadMenu.remove(); quadMenu = null; }
+  document.removeEventListener("pointerdown", onQuadMenuOutside, true);
+}
+function openQuadMenu(anchor, id) {
+  closeQuadMenu();
+  const t = Store.data.todos.find(x => x.id === id);
+  if (!t) return;
+  const cur = t.quad || 2;
+  const menu = document.createElement("div");
+  menu.className = "quad-menu";
+  menu.innerHTML = '<div class="qm-title">改到哪个象限</div>' +
+    [1, 2, 3, 4].map(n =>
+      '<button type="button" class="qm-opt q' + n + (n === cur ? " on" : "") + '" data-q="' + n + '">' +
+        '<span class="qm-dot"></span><span>' + QUADS[n].name + '</span>' +
+        (n === cur ? '<span class="qm-ok">✓</span>' : '') +
+      '</button>').join("");
+  document.body.appendChild(menu);
+  quadMenu = menu;
+  const r = anchor.getBoundingClientRect();
+  const w = 176;
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  const below = r.bottom + 6;
+  const top = (below + menu.offsetHeight > window.innerHeight - 8)
+    ? Math.max(8, r.top - menu.offsetHeight - 6) : below;
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+  menu.addEventListener("click", e => {
+    const b = e.target.closest("[data-q]");
+    if (!b) return;
+    const qn = Number(b.dataset.q);
+    closeQuadMenu();
+    setTodoQuad(id, qn);
+  });
+  setTimeout(() => document.addEventListener("pointerdown", onQuadMenuOutside, true), 0);
+}
+
+/* ---------- 四象限视图：Pointer Events 拖拽 ----------
+   HTML5 的 draggable / dragstart 在安卓 Chrome 上基本不工作，
+   所以自己实现一套，桌面鼠标与触屏共用。 */
+const QuadDrag = {
+  s: null,
+  start(e, item, fromGrip) {
+    if (e.button != null && e.button !== 0) return;
+    /* 触屏只允许从把手起拖；否则手指按在条目上就没法滚动页面了 */
+    if (e.pointerType === "touch" && !fromGrip) return;
+    this.s = {
+      id: item.dataset.id, item, fromGrip,
+      x0: e.clientX, y0: e.clientY, pointerId: e.pointerId,
+      active: false, ghost: null, target: null, offX: 0, offY: 0
+    };
+  },
+  begin(s) {
+    s.active = true;
+    const r = s.item.getBoundingClientRect();
+    s.offX = s.x0 - r.left;
+    s.offY = s.y0 - r.top;
+    const g = s.item.cloneNode(true);
+    g.className = "quad-item quad-drag-ghost";
+    g.style.width = r.width + "px";
+    document.body.appendChild(g);
+    s.ghost = g;
+    s.item.classList.add("dragging");
+    document.body.classList.add("quad-dragging");
+    this.place(s, s.x0, s.y0);
+  },
+  place(s, x, y) {
+    if (!s.ghost) return;
+    s.ghost.style.left = (x - s.offX) + "px";
+    s.ghost.style.top = (y - s.offY) + "px";
+  },
+  move(e) {
+    const s = this.s;
+    if (!s || e.pointerId !== s.pointerId) return;
+    if (!s.active) {
+      const dist = Math.hypot(e.clientX - s.x0, e.clientY - s.y0);
+      if (!s.fromGrip && e.pointerType !== "touch" && dist < 8) return;
+      if (!s.fromGrip && e.pointerType === "touch") return;
+      this.begin(s);
+    }
+    if (e.cancelable) e.preventDefault();
+    this.place(s, e.clientX, e.clientY);
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = (el && el.closest) ? el.closest(".quad-cell") : null;
+    if (s.target !== cell) {
+      if (s.target) s.target.classList.remove("drop-target");
+      s.target = cell;
+      if (cell) cell.classList.add("drop-target");
+    }
+  },
+  end(e) {
+    const s = this.s;
+    if (!s || (e && e.pointerId !== s.pointerId)) return;
+    const qn = (s.active && s.target) ? Number(s.target.dataset.quad) : null;
+    const id = s.id;
+    this.cleanup();
+    if (qn && QUADS[qn]) setTodoQuad(id, qn);
+  },
+  cleanup() {
+    const s = this.s;
+    if (!s) return;
+    if (s.ghost) s.ghost.remove();
+    s.item.classList.remove("dragging");
+    if (s.target) s.target.classList.remove("drop-target");
+    document.body.classList.remove("quad-dragging");
+    this.s = null;
+  }
+};
+function bindQuadDrag() {
+  const qv = $("#todoQuadView");
+  if (!qv) return;
+  qv.addEventListener("pointerdown", e => {
+    const el = e.target;
+    if (!el || !el.closest) return;
+    const item = el.closest(".quad-item");
+    if (!item || el.closest("[data-act]")) return;   /* 勾选 / 删除按钮不参与拖拽 */
+    QuadDrag.start(e, item, !!el.closest(".qi-grip"));
+  });
+  window.addEventListener("pointermove", e => QuadDrag.move(e), { passive: false });
+  window.addEventListener("pointerup", e => QuadDrag.end(e));
+  window.addEventListener("pointercancel", () => QuadDrag.cleanup());
+  window.addEventListener("scroll", () => closeQuadMenu(), { passive: true });
+  /* 键盘可操作：标签上按 Enter / 空格也能打开下拉 */
+  const list = $("#todoList");
+  if (list) list.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const tag = e.target.closest && e.target.closest('[data-act="quad"]');
+    if (!tag) return;
+    e.preventDefault();
+    const item = tag.closest(".todo-item");
+    if (item) openQuadMenu(tag, item.dataset.id);
+  });
 }
 
 /* 中文自然语言解析：把「明天下午3点半 交作业」拆成日期 / 时间 / 象限 */
@@ -3694,10 +3859,12 @@ function init() {
       const id = item.dataset.id;
       if (btn.dataset.act === "toggle") toggleTodo(id);
       if (btn.dataset.act === "del") deleteTodo(id);
+      if (btn.dataset.act === "quad") openQuadMenu(btn, id);
     });
   }
   bindTodoClicks("#todoList", ".todo-item");
   bindTodoClicks("#todoQuadView", ".quad-item");
+  bindQuadDrag();
   const todoSeg = $("#todoSeg");
   if (todoSeg) todoSeg.addEventListener("click", e => {
     const b = e.target.closest(".seg-btn");

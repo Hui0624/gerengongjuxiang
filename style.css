@@ -1747,3 +1747,48 @@ input, textarea, select { font-family: inherit; }
   to   { transform: translateY(-50%) scaleY(1); opacity: 1; }
 }
 
+/* =========================================================
+   象限调整 wb-v11：列表点标签下拉 + 四象限拖拽
+   ========================================================= */
+.ti-tag[data-act="quad"] { cursor: pointer; user-select: none; border: 1px dashed transparent; }
+.ti-tag[data-act="quad"]:hover { border-color: currentColor; }
+.ti-tag[data-act="quad"]:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+.quad-menu { position: fixed; z-index: 130; min-width: 176px; padding: 6px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow-lg); }
+.qm-title { font-size: 11px; color: var(--muted); padding: 5px 8px 7px; }
+.qm-opt { display: flex; align-items: center; gap: 9px; width: 100%;
+  font: inherit; font-size: 12.5px; padding: 8px 9px; border: 0;
+  border-radius: 8px; background: transparent; color: var(--text);
+  cursor: pointer; text-align: left; }
+.qm-opt:hover { background: var(--hover-bg); }
+.qm-opt.on { font-weight: 700; }
+.qm-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.qm-opt.q1 .qm-dot { background: var(--red); }
+.qm-opt.q2 .qm-dot { background: var(--blue); }
+.qm-opt.q3 .qm-dot { background: var(--orange); }
+.qm-opt.q4 .qm-dot { background: var(--muted); }
+.qm-ok { margin-left: auto; color: var(--green); }
+
+/* 触屏只有把手是 touch-action:none，条目其余区域仍可正常滚动页面 */
+.qi-grip { flex: 0 0 auto; width: 14px; align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 11px; letter-spacing: -2px;
+  cursor: grab; touch-action: none; opacity: .55; user-select: none; }
+.qi-grip:hover { opacity: 1; color: var(--green); }
+.qi-grip:active { cursor: grabbing; }
+.quad-item { position: relative; }
+.quad-item.dragging { opacity: .3; }
+.quad-drag-ghost { position: fixed; z-index: 200; pointer-events: none;
+  opacity: .94; transform: rotate(-1.5deg) scale(1.02);
+  box-shadow: 0 14px 34px rgba(0,0,0,.28); border-color: var(--green); }
+body.quad-dragging { user-select: none; }
+.quad-cell.drop-target { outline: 2px dashed var(--green); outline-offset: -3px;
+  background: var(--green-soft); }
+.quad-cell.drop-target .quad-title { color: var(--green); }
+
+@media (max-width: 560px) {
+  .qi-grip { width: 20px; font-size: 13px; }
+}
+
