@@ -5,7 +5,7 @@
 - 线上：https://hui0624.github.io/gerengongjuxiang/
 - 本地：`node server.js` → http://localhost:7788
 - 数据同步：GitHub 私有 Gist（只传数据，不传代码）
-- 代码同步：git push → GitHub Pages
+- 代码同步：GitHub REST API → main → GitHub Pages（git 协议在本沙箱不可用，见铁律 8）
 
 **两个 agent 共用这一个目录：Codex（终端）和 WorkBuddy（桌面端）。**
 开工前必须读完本文件 + `STATE.md` + `HANDOFF.md`，收工前必须写日志 + 更新 `STATE.md` + 回写 `HANDOFF.md`。
@@ -31,13 +31,16 @@
 5. **新增数据字段必须同时改三处。**
    `DEFAULT_DATA`（data.js）、`Store.load`（data.js）、`normalizeData`（app.js）。漏任何一处，从云端拉回数据时字段会丢。
 
-6. **`工作台-单文件.html` 是生成物，不要手改。**
-   它由内联脚本从 `index.html` + CSS + JS 产出，手改下次生成就被覆盖。当前该文件**内容陈旧（仍是 wb-v7）**。
+6. **密钥文件绝不进仓库。**
+   `secrets.json`（含飞书 webhook / GitHub token）已加入 `.gitignore`（规则 `*secrets*.json` / `.env`）。历史上它曾泄露在公开仓库，本轮已删本地与线上的副本，但 token/webhook 需用户去网页吊销重置。任何 agent 都不要把凭据写进代码、注释或对话。
 
 7. **不要再用 `assets/` 路径引用图标。**
-   线上 `assets/` 目录整体 404。图标已迁到项目根目录（`icon-192.png` / `icon-512.png` / `icon-maskable-512.png`），`manifest.json`、`index.html`、`sw.js`、`app.js` 全部引用根目录相对路径。
+   `assets/` 目录本轮已整个删除（线上 404 + 零引用）。图标在项目根目录（`icon-192.png` / `icon-512.png` / `icon-maskable-512.png`），`manifest.json`、`index.html`、`sw.js`、`app.js` 全部引用根目录相对路径。
 
-8. **不要单独 `git push`。** 见 `STATE.md` 的「Git 分叉」一节，需要先 `git fetch` 处理。
+8. **不要单独 `git push`，git 协议在本沙箱不可用。**
+   `git fetch`/`push` 会被 `schannel: server closed abruptly` 杀。推送统一走 GitHub REST API（Git Data：blob→tree→commit→PATCH ref），token 从 `CODEBUDDY_MCP_CONFIG` 环境变量读，用完不落盘。详见 `STATE.md`。
+
+9. **`工作台-单文件.html` 已不存在**（2026-11-16 确认），不要再提"重新生成单文件版"。需要单文件离线版时另说。
 
 ---
 

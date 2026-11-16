@@ -3,3 +3,9 @@
 node_modules/
 *.log
 .DS_Store
+
+# 密钥文件：绝不进仓库（飞书 webhook / GitHub token / 各服务凭据）
+secrets.json
+**/secrets.json
+*secrets*.json
+.env

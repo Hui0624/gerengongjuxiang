@@ -4,43 +4,34 @@
 
 ---
 
-**给**：Codex
-**时间**：2026-11-08 18:59
-**来自**：WorkBuddy
+**给**：Codex / 下一个接手的 agent
+**时间**：2026-11-16 20:20
+**来自**：阿诚（WorkBuddy）
 
-## 上一封已读
+## 一句话现状
 
-你的信读到了，hook 的 PATH 修复也确认了（`export PATH="/usr/bin:/bin:$PATH"` + Windows 路径归一化，脚本 1808 字节）。
+线上 `main` = `1a304ae`（**wb-v11**，无学习通）。本轮做了安全清理 + 三份文档重写 + 同步/转义优化，改动**尚未推到 main**。
 
-**补一个事实：改完之后 hook 在 WorkBuddy 侧仍未生效。** 18:59 这轮会话的上下文里没有 `<!-- project-context: injected by SessionStart hook -->` 标记，只有 IDE 自带的 project_guidance 注入了 AGENTS.md。原因待查——可能是 WorkBuddy 没重启（配置不热加载），也可能是 hook 压根没被调度。下次开工请帮我看一眼。
+## 你开工必须知道
 
-## 我做了什么
+1. **版本基准是 wb-v11，不是 STATE 旧版里的 wb-v8/v9**。学习通（v12/v13）已整体回退，保全分支 `wb-v13-xxt`@`b5e1eb6` 留着全部代码，别误以为丢了。
 
-**wb-v9 动效层**（已改未提交）：
+2. **密钥已泄露，正等用户吊销**：公开仓库历史里曾有明文 GitHub token + 飞书 webhook。本轮已删两份 `secrets.json` 并加 `.gitignore` 规则，但**token 必须用户去 GitHub 网页吊销、webhook 去飞书重置**才算闭环。用户没做完之前，不要再往仓库放任何密钥。
 
-- `style.css` 末尾追加 7 组动效
-- `app.js`：`switchView()` 加一次性 `enter` class，`init()` 首屏补一次
-- `sw.js`：VERSION `wb-v8` → `wb-v9`
+3. **删过哪些文件（别奇怪）**：根目录的 `secrets.json`/`worker.js`/`local-test.js`/`package.json`/`README.md` 和 `assets/`、`gen-icons.js` 全删了——前四个与 `飞书提醒/` 逐字节相同（重复），后两个零引用（死文件）。权威副本在 `飞书提醒/`。
 
-## 你改代码前必须知道
+4. **发布铁律仍有效**：改了 js/css 必须先把 `sw.js` 的 VERSION 往上加（`wb-v11` → `wb-v12`），否则用户看不到更新。
 
-1. **`.view.enter` 是一次性 class，700ms 后会被摘掉。** 列表动画（`.todo-item` / `.skill-card` / `.habit-item` / `.cd-card`）全部挂在它下面，**不要把它改成常驻**——列表是 innerHTML 重建的，常驻会让「勾一个待办、整列重播动画」，视觉上闪得很明显。
+5. **git 推不动，走 REST API**：本沙箱 git fetch/push 被 `schannel: server closed abruptly` 杀。token 从环境变量 `CODEBUDDY_MCP_CONFIG` 读，用 base64 blob + Git Data API 推，别 hardcode。
 
-2. **`.check` 新增了 `position: relative`**，是涟漪 `::after` 定位用的。改打卡样式时别删。
+## 本轮改了什么
 
-3. `.habit-item` 原本没有 transition，这次补了 `.18s`；如果你之前有依赖「无过渡」的地方，注意一下。
+- 删：泄露密钥、死目录、重复文件（见上）
+- 改：`.gitignore`（加 `*secrets*.json`/`.env`）、`STATE.md`、`HANDOFF.md`、`AGENTS.md`
+- 改：`app.js`（自动同步冲突提示 + innerHTML 转义 + safeUrl/safeCssUrl）、`server.js`（ESM 兼容）、`sw.js`（VERSION `wb-v11` → `wb-v11-sec`）
 
-4. `VERSION` 已经是 `wb-v9`，别再改回 v8。
+## 下一步
 
-## 下一步建议
-
-**单文件版现在落后两代了**（wb-v7，缺回收站 + 快照 + 动效层）。重新生成时注意：
-- 内联 `theme.css` + `style.css` + `app.js` + `data.js`
-- 去掉 `manifest.json` 的 `<link>`（`file://` 下绝对路径无效）
-- 动效层在 `style.css` 末尾，内联时别漏
-
-## 我的验证记录
-
-- `node --check app.js` / `sw.js` 通过
-- `style.css` 大括号 729/729
-- Edge headless 截图：首页 167479B、待办页（`?view=todo`，走 switchView 新路径）98346B，布局完整
+1. 确认用户已吊销 token / 重置 webhook。
+2. 把本轮改动推到 main（REST API），复核线上文件树无 secrets、无 assets。
+3. 用户要恢复学习通时，从 `wb-v13-xxt` 分支取，并重新解决 `workers.dev` 大陆不可达（买域名挂 CF 或国内云函数）。

@@ -6,13 +6,15 @@
    启动：node server.js  → http://localhost:7788
    ========================================================= */
 
-const http = require("http");
-const https = require("https");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const crypto = require("crypto");
+import http from "http";
+import https from "https";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import crypto from "crypto";
+import { fileURLToPath } from "url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.WB_PORT || 7788);
 const ROOT = __dirname;
 const JW_BASE = process.env.WB_JW_BASE || "https://jwgl.huayu.edu.cn";

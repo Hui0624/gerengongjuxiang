@@ -14,6 +14,21 @@ function esc(s) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+/* URL 安全化：只放行 http(s) 与站内 #，挡掉 javascript:/data: 伪协议。
+   用于所有把用户/云端可控链接放进 href 的地方（Gist token 曾泄露，按不可信源处理）。 */
+function safeUrl(u) {
+  const s = String(u == null ? "" : u).trim();
+  if (!s || s === "#") return "#";
+  if (/^https?:\/\//i.test(s)) return esc(s);
+  return "#";
+}
+/* CSS url("...") 上下文安全化：放行 http(s) 与 data:image（本地上传的照片皮肤），
+   其余拒绝；同时去掉会闭合引号/声明的字符。 */
+function safeCssUrl(u) {
+  const s = String(u == null ? "" : u).trim();
+  if (!/^(https?:\/\/|data:image\/)/i.test(s)) return "";
+  return s.replace(/["'()\\]/g, "").replace(/[\r\n]/g, "");
+}
 function dateStr(d) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
@@ -89,7 +104,7 @@ const Theme = {
     const t = this.effective;
     el.setAttribute("data-theme", t);
     if (t === "photo") {
-      const img = this.getImage();
+      const img = safeCssUrl(this.getImage());
       if (img) el.style.setProperty("--skin-image", 'url("' + img + '")');
       else el.style.removeProperty("--skin-image");
       el.style.setProperty("--skin-dim", (Number(this.getDim()) / 100).toFixed(2));
@@ -220,7 +235,7 @@ function openThemeModal() {
     const thumb = $("#skinThumb", body);
 
     const paintThumb = () => {
-      const img = Theme.getImage();
+      const img = safeCssUrl(Theme.getImage());
       if (img) {
         thumb.style.backgroundImage = `url("${img}")`;
         thumb.textContent = "";
@@ -353,7 +368,7 @@ function renderTimeline(scrollToNow = false) {
     const width = n > 1 ? `calc(${(100 / n).toFixed(4)}% - 4px)` : "calc(100% - 4px)";
     courseHtml += `<div class="tl-block course" style="top:${top}px;height:${hgt}px;left:${left};width:${width};right:auto" data-course="${c.id}">
       <div class="tb-name">${esc(c.name)}</div>
-      <div class="tb-meta">${c.start}–${c.end}${c.room ? " · " + esc(c.room) : ""}</div>
+      <div class="tb-meta">${esc(c.start)}–${esc(c.end)}${c.room ? " · " + esc(c.room) : ""}</div>
     </div>`;
   });
   if (courseHtml) {
@@ -377,7 +392,7 @@ function renderTimeline(scrollToNow = false) {
       const meta = en > s ? `${t.time}–${t.end}` : t.time;
       html += `<div class="tl-block todo ${t.done ? "done" : ""}" style="top:${top}px;height:${hgt}px" data-todo="${t.id}">
         <div class="tb-name">${t.done ? "✔ " : "○ "}${esc(t.text)}</div>
-        <div class="tb-meta">${meta}</div>
+        <div class="tb-meta">${esc(meta)}</div>
       </div>`;
     });
 
@@ -756,7 +771,7 @@ function todoItemHTML(t) {
       <div class="ti-tags">
         <span class="ti-tag ${q.cls}" data-act="quad" role="button" tabindex="0" title="点一下改象限">${q.name} ▾</span>
         ${t.date ? `<span class="ti-date">📅 ${fmtDateShort(t.date)}</span>` : ""}
-        ${t.time ? `<span class="ti-time">⏰ ${t.time}${t.end ? "–" + t.end : ""}</span>` : ""}
+        ${t.time ? `<span class="ti-time">⏰ ${esc(t.time)}${t.end ? "–" + esc(t.end) : ""}</span>` : ""}
       </div>
     </div>
     <button class="ti-del" data-act="del" title="删除">✕</button>
@@ -805,7 +820,7 @@ function renderTodo() {
       return at - bt;
     });
     const isPast = k !== "未排期" && k < tStr;
-    html.push(`<div class="day-divider${isPast ? " past" : ""}" data-date="${esc(k)}"><span class="dd-label">${dayLabel(k)}${isPast ? " · 之前" : ""}</span><span class="dd-count">${items.length} 项</span></div>`);
+    html.push(`<div class="day-divider${isPast ? " past" : ""}" data-date="${esc(k)}"><span class="dd-label">${esc(dayLabel(k))}${isPast ? " · 之前" : ""}</span><span class="dd-count">${items.length} 项</span></div>`);
     items.forEach(t => html.push(todoItemHTML(t)));
   }
   list.innerHTML = html.join("");
@@ -830,7 +845,7 @@ function renderTodoQuad() {
             <button class="check sm" data-act="toggle" title="完成">✓</button>
             <div class="qi-body">
               <div class="qi-text">${esc(t.text)}</div>
-              <div class="qi-meta">${fmtDateShort(t.date)}${t.time ? " · " + t.time : ""}</div>
+              <div class="qi-meta">${esc(fmtDateShort(t.date))}${t.time ? " · " + esc(t.time) : ""}</div>
             </div>
             <button class="ti-del sm" data-act="del" title="删除">✕</button>
           </div>`).join("") : `<div class="empty-hint sm">空</div>`}
@@ -1322,8 +1337,8 @@ function renderSkills() {
       </details>
 
       <div class="sc-links">
-        <a class="link-btn bili" href="${esc((s.links && s.links.bili) || "#")}" target="_blank" rel="noopener">▶ B站</a>
-        <a class="link-btn dy" href="${esc((s.links && s.links.dy) || "#")}" target="_blank" rel="noopener">▶ 抖音</a>
+        <a class="link-btn bili" href="${safeUrl(s.links && s.links.bili)}" target="_blank" rel="noopener">▶ B站</a>
+        <a class="link-btn dy" href="${safeUrl(s.links && s.links.dy)}" target="_blank" rel="noopener">▶ 抖音</a>
         <button class="link-btn set" data-act="link">✎ 链接</button>
       </div>
     </div>`;
@@ -1884,7 +1899,7 @@ function courseListHtml() {
     <div class="todo-item" style="padding:9px 12px" data-cid="${c.id}">
       <div class="ti-body">
         <div class="ti-text">${esc(c.name)}</div>
-        <div class="ti-time">${weekdayName(c.day)} ${c.start}–${c.end}${c.room ? " · " + esc(c.room) : ""}</div>
+        <div class="ti-time">${weekdayName(c.day)} ${esc(c.start)}–${esc(c.end)}${c.room ? " · " + esc(c.room) : ""}</div>
       </div>
       <button class="ti-del" data-act="del-course" title="删除课程">✕</button>
     </div>`).join("");
@@ -2549,8 +2564,14 @@ function openInstallGuide() {
    用数据里的 updatedAt 比较，谁新用谁（last-write-wins），避免互相覆盖。 */
 let syncTimer = null;
 let syncing = false;
+/* 本地有改动但还没成功推上去的时间戳；0=干净。用于检测多端冲突，避免静默覆盖。 */
+let localDirtyAt = 0;
+/* 冲突对话框只弹一次，避免每 20 秒轮询反复打扰 */
+let conflictOpen = false;
 
 window.onDataChanged = function () {
+  /* 只要本地动了就打脏标记（即使没开自动同步，手动拉取时也要据此提醒） */
+  localDirtyAt = Date.now();
   // 没有 gistId 也不要紧：首次 push 会自动建一个
   if (!SyncCfg.auto || !SyncCfg.token) return;
   clearTimeout(syncTimer);
@@ -2561,6 +2582,7 @@ window.onDataChanged = function () {
     if (el) { el.textContent = "同步中…"; el.classList.remove("warn", "err"); }
     try {
       await GH.push();
+      localDirtyAt = 0;   // 推送成功，本地不再是脏状态
       updateSyncBadge();
       /* 每 2 小时顺手留一版本地快照，能回溯到今天早些时候的状态 */
       const lastSnap = Number(localStorage.getItem("wb_last_snap_ts") || 0);
@@ -2576,7 +2598,9 @@ window.onDataChanged = function () {
   }, 2000);
 };
 
-/* 从云端拉取；remote 比本地新才应用，避免覆盖刚做的本地修改 */
+/* 从云端拉取；remote 比本地新才应用。
+   冲突保护：如果本地有尚未推上去的改动，且云端也更新了，绝不静默覆盖——
+   弹窗让用户自己选「用云端」还是「保留本地」，避免多端同时改导致数据无声丢失。 */
 async function autoPull() {
   if (!SyncCfg.token || !SyncCfg.gistId || syncing) return;
   syncing = true;
@@ -2585,6 +2609,34 @@ async function autoPull() {
     const rUpd = remote.updatedAt || 0;
     const lUpd = Store.data.updatedAt || 0;
     if (rUpd > lUpd) {
+      /* 本地有未同步改动 + 云端更新 = 潜在冲突 */
+      if (localDirtyAt > 0 && !conflictOpen) {
+        conflictOpen = true;
+        const el = $("#syncBadge");
+        if (el) { el.textContent = "同步冲突"; el.classList.add("warn"); }
+        let useCloud = false;
+        try {
+          useCloud = confirm(
+            "检测到另一个设备也改了数据，而你在这台设备上也有还没同步的改动。\n\n" +
+            "点「确定」= 用云端版本覆盖本机（本机未同步的改动会丢失）；\n" +
+            "点「取消」= 保留本机版本，稍后由你手动处理。\n\n" +
+            "拿不准就选「取消」，数据都在历史快照里能找回。"
+          );
+        } catch (e) { useCloud = false; }
+        conflictOpen = false;
+        if (useCloud) {
+          applyRemoteData(remote);
+          localDirtyAt = 0;
+          SyncCfg.lastSync = Date.now();
+          console.log("[sync] 冲突：用户选择用云端覆盖");
+        } else {
+          /* 保留本地：把 badge 标成待处理，但不动数据 */
+          if (el) { el.textContent = "有冲突·待处理"; el.classList.add("err"); }
+          console.log("[sync] 冲突：保留本地版本");
+        }
+        return;
+      }
+      /* 没有未同步的本地改动，安全拉取 */
       applyRemoteData(remote);   // 内部会 renderAll + 直接落盘（不触发回环）
       SyncCfg.lastSync = Date.now();
       console.log("[sync] 已拉取云端更新");
@@ -2882,7 +2934,7 @@ function renderHome() {
       <div class="stat-body">
         <div class="stat-label">${s.label}</div>
         <div class="stat-value">${s.value}</div>
-        <div class="stat-sub">${s.sub}</div>
+        <div class="stat-sub">${esc(s.sub)}</div>
       </div>
     </div>`).join("");
 
@@ -2895,7 +2947,7 @@ function renderHome() {
       <span class="ht-check ${t.done ? "on" : ""}">${t.done ? "✓" : ""}</span>
       <span class="ht-text">${esc(t.text)}</span>
       ${od ? `<span class="ht-od">逾期</span>` : `<span class="ht-tag ${quadOf(t).cls}">${quadOf(t).name}</span>`}
-      ${t.time ? `<span class="ht-time">${t.time}</span>` : ""}
+      ${t.time ? `<span class="ht-time">${esc(t.time)}</span>` : ""}
     </div>`; }).join("");
 
   // 今日课程
@@ -3189,7 +3241,7 @@ function logItemHTML(l) {
       <div class="li-meta">
         <span class="li-type">${ty.name}</span>
         ${tags.map(x => `<span class="li-tag">#${esc(x)}</span>`).join("")}
-        ${l.link ? `<a class="li-link" href="${esc(l.link)}" target="_blank" rel="noopener">链接</a>` : ""}
+        ${l.link ? `<a class="li-link" href="${safeUrl(l.link)}" target="_blank" rel="noopener">链接</a>` : ""}
       </div>
     </div>
     <button class="li-del" data-act="log-del" title="删除">✕</button>
@@ -3396,7 +3448,7 @@ function showLogPreview(p, raw) {
       </div>
       <input class="input lp-text" id="lpText" value="${esc(p.text || "")}" placeholder="做了什么" />
       <input class="input lp-detail" id="lpDetail" value="${esc(p.detail || "")}" placeholder="原因 / 怎么解的（可空）" />
-      <input class="input lp-tags" id="lpTags" value="${(p.tags || []).map(t => "#" + t).join(" ")}" placeholder="标签，空格分开" />
+      <input class="input lp-tags" id="lpTags" value="${(p.tags || []).map(t => "#" + esc(t)).join(" ")}" placeholder="标签，空格分开" />
       <div class="lp-actions">
         <button class="btn ghost" id="lpCancel" type="button">不用了</button>
         <button class="btn ghost" id="lpRaw" type="button">看原话</button>
