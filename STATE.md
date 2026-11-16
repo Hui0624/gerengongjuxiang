@@ -31,7 +31,7 @@
 
 ## 未完成 / 待用户
 
-1. **吊销已泄露的密钥（用户 MUST 亲自做）**：公开仓库历史里曾有明文 GitHub token（`ghp_calX…0154icE`）和飞书 webhook。删文件不能让 token 失效——去 GitHub Settings → Developer settings → Tokens 吊销该 token；去飞书群机器人详情页重置 webhook。完成后本项目的飞书提醒本地 `--send` 需新建 `飞书提醒/secrets.json`（格式见 `飞书提醒/README.md`）才能用。
+1. **吊销已泄露的密钥（用户 MUST 亲自做）**：公开仓库历史里曾有明文 GitHub token（以 `ghp_` 开头的个人令牌）和飞书 webhook。删文件不能让 token 失效——去 GitHub Settings → Developer settings → Tokens 吊销那枚曾用于本项目的 token；去飞书群机器人详情页重置 webhook。完成后本项目的飞书提醒本地 `--send` 需新建 `飞书提醒/secrets.json`（格式见 `飞书提醒/README.md`）才能用。
 2. **APK 打包**：暂缓。PWABuilder 走 "Other Android"，Fallback 从 Custom Tabs 改 Web View；根因是缺 `https://hui0624.github.io/.well-known/assetlinks.json`（404）。
 3. **项目档案界面**：`data.js` 的 `projects` 有字段无界面。
 4. **WorkBuddy 的 SessionStart hook**：截至 11-08 未在会话上下文注入 `project-context` 标记，Codex 修过 PATH 但需重启 WorkBuddy 后复验。
