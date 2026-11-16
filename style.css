@@ -1545,6 +1545,15 @@ input, textarea, select { font-family: inherit; }
   font-size: 13px; padding: 2px 6px; border-radius: 6px;
 }
 .ql-x:hover { color: var(--text); background: var(--hover-bg); }
+/* 引导式记录：一排具体问题，点一下把提示带进输入框，解决"不知道写啥" */
+.ql-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 9px; }
+.ql-prompt {
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text-2);
+  font-size: 12px; line-height: 1.2; padding: 5px 10px; border-radius: 999px;
+  cursor: pointer; white-space: nowrap;
+}
+.ql-prompt:hover { border-color: var(--green-line); color: var(--green); background: var(--green-soft); }
+.ql-prompt.on { border-color: var(--green); color: var(--green); background: var(--green-soft); }
 .ql-row { display: flex; gap: 8px; }
 .ql-row .input { flex: 1 1 auto; min-width: 0; }
 .ql-voice { width: 42px; flex: 0 0 auto; justify-content: center; padding: 0; touch-action: none; }
@@ -1787,6 +1796,14 @@ body.quad-dragging { user-select: none; }
 .quad-cell.drop-target { outline: 2px dashed var(--green); outline-offset: -3px;
   background: var(--green-soft); }
 .quad-cell.drop-target .quad-title { color: var(--green); }
+/* 格内排序：落点条目的上/下边缘显示插入线 */
+.quad-item.drop-before::before, .quad-item.drop-after::after {
+  content: ""; position: absolute; left: 4px; right: 4px; height: 3px;
+  border-radius: 2px; background: var(--green); z-index: 5;
+  box-shadow: 0 0 0 2px var(--panel);
+}
+.quad-item.drop-before::before { top: -6px; }
+.quad-item.drop-after::after { bottom: -6px; }
 
 @media (max-width: 560px) {
   .qi-grip { width: 20px; font-size: 13px; }

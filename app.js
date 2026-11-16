@@ -875,6 +875,45 @@ function setTodoQuad(id, qn) {
   toast("已移到「" + QUADS[qn].name + "」");
 }
 
+/* 四象限拖拽排序：把待办移到目标象限的指定位置。
+   四象限视图按 todos 数组原顺序渲染（见 renderTodoQuad），所以"顺序"= 数组里的先后。
+   - refId / after 决定插在谁的前后；
+   - refId 为空（落在格子空白/标题）时：跨象限置顶，同象限沉底。 */
+function moveTodoInQuad(id, qn, refId, after) {
+  const todos = Store.data.todos;
+  const t = todos.find(x => x.id === id);
+  if (!t || !QUADS[qn]) return;
+  const from = t.quad || 2;
+  const sameQuad = from === qn;
+
+  /* 先把这条从数组里摘出来，再算插入点（下标会变，必须先摘） */
+  const curIdx = todos.indexOf(t);
+  if (curIdx >= 0) todos.splice(curIdx, 1);
+  t.quad = qn;
+
+  let insertAt;
+  if (refId) {
+    const refIdx = todos.findIndex(x => x.id === refId);
+    if (refIdx >= 0) {
+      insertAt = refIdx + (after ? 1 : 0);
+    } else {
+      insertAt = sameQuad ? todos.length : 0;
+    }
+  } else {
+    /* 没有具体落点条目：跨格置顶，同格沉底 */
+    insertAt = sameQuad ? todos.length : 0;
+  }
+  insertAt = Math.max(0, Math.min(insertAt, todos.length));
+  todos.splice(insertAt, 0, t);
+
+  Store.save({ snapshot: true, label: "四象限拖拽排序" });
+  renderTodo();
+  renderHome();
+  renderTimeline();
+  renderNextCard();
+  toast(sameQuad ? "已调整顺序" : "已移到「" + QUADS[qn].name + "」首位");
+}
+
 /* ---------- 列表视图：点彩色标签弹下拉 ---------- */
 let quadMenu = null;
 function onQuadMenuOutside(e) {
@@ -933,7 +972,8 @@ const QuadDrag = {
     this.s = {
       id: item.dataset.id, item, fromGrip,
       x0: e.clientX, y0: e.clientY, pointerId: e.pointerId,
-      active: false, ghost: null, target: null, offX: 0, offY: 0
+      active: false, ghost: null, target: null, refItem: null, after: false,
+      offX: 0, offY: 0
     };
   },
   begin(s) {
@@ -973,14 +1013,33 @@ const QuadDrag = {
       s.target = cell;
       if (cell) cell.classList.add("drop-target");
     }
+    /* 落点条目：排除自己（dragging 项 opacity 低但仍在 DOM）。
+       用鼠标相对条目中线的位置决定插到它前面还是后面。 */
+    let ref = null, after = false;
+    if (cell && el && el.closest) {
+      const hitItem = el.closest(".quad-item");
+      if (hitItem && hitItem !== s.item && cell.contains(hitItem)) {
+        ref = hitItem;
+        const r = hitItem.getBoundingClientRect();
+        after = e.clientY > r.top + r.height / 2;
+      }
+    }
+    if (s.refItem !== ref || s.after !== after) {
+      if (s.refItem) s.refItem.classList.remove("drop-before", "drop-after");
+      s.refItem = ref;
+      s.after = after;
+      if (ref) ref.classList.add(after ? "drop-after" : "drop-before");
+    }
   },
   end(e) {
     const s = this.s;
     if (!s || (e && e.pointerId !== s.pointerId)) return;
     const qn = (s.active && s.target) ? Number(s.target.dataset.quad) : null;
     const id = s.id;
+    const refId = (s.active && s.refItem) ? s.refItem.dataset.id : null;
+    const after = s.after;
     this.cleanup();
-    if (qn && QUADS[qn]) setTodoQuad(id, qn);
+    if (qn && QUADS[qn]) moveTodoInQuad(id, qn, refId, after);
   },
   cleanup() {
     const s = this.s;
@@ -988,6 +1047,7 @@ const QuadDrag = {
     if (s.ghost) s.ghost.remove();
     s.item.classList.remove("dragging");
     if (s.target) s.target.classList.remove("drop-target");
+    if (s.refItem) s.refItem.classList.remove("drop-before", "drop-after");
     document.body.classList.remove("quad-dragging");
     this.s = null;
   }
@@ -3519,9 +3579,58 @@ function addLogFromInput() {
   handleSpoken(raw);
 }
 
-/* ---------- 完成待办后的「记一笔」 ---------- */
+/* ---------- 完成待办后的「记一笔」 ----------
+   引导式记录：给空框换成一组具体问题，点一下带半句进输入框，
+   解决"不知道写啥"。按待办文本分类选问题组，零 AI 也能用。 */
 let quickLogType = "win";
 let quickLogTodo = "";
+
+/* 每组：{ 关键词, 问题:[{label, hint, type}] }
+   hint 是点完后填进输入框的半句开头，用户补几个字即可。 */
+const QL_PROMPTS = [
+  {
+    test: /调试|报错|失败|卡|跑通|调|i2c|stm32|esp|imu|编码|驱动|电路|焊接|程序|代码|bug|接口/i,
+    list: [
+      { label: "卡在哪了", hint: "卡在 __，因为 __", type: "pit" },
+      { label: "怎么解决的", hint: "最后这样解决的：__", type: "win" },
+      { label: "学到啥", hint: "学到 __，以后 __", type: "win" },
+      { label: "还没搞定的", hint: "还差 __，下次试 __", type: "idea" }
+    ]
+  },
+  {
+    /* 杂事动作词优先：像"交英语作业"这种同时含学科词和动作词的，按动作归类 */
+    test: /交|提交|填表|报名|整理|买|取|寄|报销|开会|讨论|材料|打扫|收拾/i,
+    list: [
+      { label: "顺利吗", hint: "挺顺利，__", type: "win" },
+      { label: "有坑吗", hint: "踩了个坑：__", type: "pit" },
+      { label: "花了多久", hint: "花了 __，比预期 __", type: "win" }
+    ]
+  },
+  {
+    test: /英语|单词|背|跟读|考研|复习|真题|学习|看书|四级|六级|课程|作业|论文/i,
+    list: [
+      { label: "记住了啥", hint: "记住了 __", type: "win" },
+      { label: "哪里没懂", hint: "没搞懂 __，打算 __", type: "pit" },
+      { label: "练了什么", hint: "练了 __，感觉 __", type: "win" },
+      { label: "下次计划", hint: "下次要 __", type: "idea" }
+    ]
+  },
+  {
+    /* 通用兜底 */
+    test: /.*/,
+    list: [
+      { label: "做成了啥", hint: "搞定了 __", type: "win" },
+      { label: "遇到啥坑", hint: "卡在 __，后来 __", type: "pit" },
+      { label: "想到啥", hint: "突然想到 __", type: "idea" }
+    ]
+  }
+];
+
+function promptsForTodo(text) {
+  const t = String(text || "");
+  for (const g of QL_PROMPTS) if (g.test.test(t)) return g.list;
+  return QL_PROMPTS[QL_PROMPTS.length - 1].list;
+}
 
 function showQuickLog(todoText) {
   const box = $("#quickLog");
@@ -3530,9 +3639,38 @@ function showQuickLog(todoText) {
   const sub = $("#qlSub");
   if (sub) sub.textContent = todoText ? "「" + todoText + "」" : "";
   const inp = $("#qlText");
-  if (inp) inp.value = "";
+  if (inp) { inp.value = ""; inp.placeholder = "点上面的问题，照着说半句就行"; }
   Array.prototype.forEach.call(box.querySelectorAll(".ql-type"), x =>
     x.classList.toggle("on", x.dataset.type === quickLogType));
+
+  /* 渲染引导问题按钮 */
+  const prompts = promptsForTodo(todoText);
+  const wrap = $("#qlPrompts");
+  if (wrap) {
+    wrap.innerHTML = "";
+    prompts.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ql-prompt";
+      b.textContent = p.label;
+      b.dataset.idx = String(i);
+      /* 用 onclick 覆盖式绑定，避免每次弹窗累积监听器 */
+      b.onclick = () => {
+        if (inp) {
+          inp.value = p.hint;
+          inp.placeholder = p.hint;
+          inp.focus();
+          try { inp.setSelectionRange(p.hint.indexOf("__"), p.hint.indexOf("__") + 2); } catch (e) {}
+        }
+        quickLogType = p.type;
+        Array.prototype.forEach.call(box.querySelectorAll(".ql-type"), x =>
+          x.classList.toggle("on", x.dataset.type === quickLogType));
+        Array.prototype.forEach.call(wrap.querySelectorAll(".ql-prompt"), x =>
+          x.classList.toggle("on", x === b));
+      };
+      wrap.appendChild(b);
+    });
+  }
   box.classList.remove("hidden");
   setTimeout(() => { if (inp) inp.focus(); }, 60);
 }
@@ -3546,6 +3684,12 @@ function saveQuickLog() {
   const inp = $("#qlText");
   const text = inp ? inp.value.trim() : "";
   if (!text) { hideQuickLog(); return; }
+  /* 还留着占位下划线 = 用户点了引导但没补内容，别存废话 */
+  if (text.indexOf("__") >= 0) {
+    if (inp) inp.focus();
+    toast("把 __ 换成你自己的话再存");
+    return;
+  }
   pushLog({ type: quickLogType, text, detail: "" });
   hideQuickLog();
   toast("已记下，周末复盘会自己汇总");
@@ -4015,7 +4159,12 @@ function init() {
     qlTypeBtns.forEach(x => x.classList.toggle("on", x === b));
   }));
   bindHold($("#qlVoice"), () => {
-    Voice.start(t => { if (qlTextEl) qlTextEl.value = t; }, t => { if (qlTextEl) qlTextEl.value = t; });
+    const onVoice = t => {
+      if (qlTextEl) qlTextEl.value = t;
+      const pw = $("#qlPrompts");
+      if (pw) Array.prototype.forEach.call(pw.querySelectorAll(".ql-prompt"), x => x.classList.remove("on"));
+    };
+    Voice.start(onVoice, onVoice);
   }, () => { Voice.stop(); });
 
   /* 技能 / 导入 / 设置 / 皮肤 */

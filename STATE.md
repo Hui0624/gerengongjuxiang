@@ -11,7 +11,7 @@
 | 本地工作树 | wb-v11 + 本轮优化（安全清理、文档、同步/转义）未提交 |
 | 线上地址 | https://hui0624.github.io/gerengongjuxiang/ |
 | 本地预览 | `node server.js` → http://localhost:7788 |
-| `sw.js` VERSION | `wb-v11-sec`（本轮安全修复版；发布新改动前必须往上加） |
+| `sw.js` VERSION | `wb-v11-sec2`（引导式记录 + 四象限排序版；发布新改动前必须往上加） |
 | 数据同步 | GitHub 私有 Gist（只传数据 `wb_data_v1`，不传代码） |
 | 代码同步 | GitHub REST API 推 `main`（git 协议在本沙箱被 schannel 拦，不可用） |
 
@@ -28,6 +28,7 @@
 - **wb-v11**：待办象限支持拖拽与下拉调整
 - **2026-11-12**：学习通作业功能（wb-v12/v13）已按用户要求**整体回退**，main 退回 wb-v11；保全分支 `wb-v13-xxt` @ `b5e1eb6` 保留全部学习通代码，随时可恢复
 - **2026-11-16 安全清理**：删除泄露的 `secrets.json`（根+飞书提醒各一份）、死目录 `assets/`、`gen-icons.js`、根目录整套重复文件（worker/local-test/package/README，与 `飞书提醒/` 逐字节相同）；`.gitignore` 增加 `*secrets*.json` / `.env`
+- **2026-11-16 体验优化**：① 引导式记录——完成待办后的"记一笔"浮层改成一组具体问题按钮（按待办文本分技术/学习/杂事三类），点一下带半句进输入框，解决"不知道写啥"；② 四象限拖拽排序——跨格拖到目标象限置顶、格内可自由前后排（Pointer Events 命中条目上/下半决定插前插后，插入线视觉反馈），排序本质是重排 `todos` 数组，`moveTodoInQuad()`（`app.js`），列表下拉改象限仍走原 `setTodoQuad()`
 
 ## 未完成 / 待用户
 
