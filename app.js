@@ -779,15 +779,18 @@ function todoItemHTML(t) {
 }
 
 function renderTodo() {
-  const list = $("#todoList"), quadView = $("#todoQuadView");
-  if (todoMode === "quad") {
-    list.classList.add("hidden");
-    quadView.classList.remove("hidden");
-    renderTodoQuad();
-    return;
-  }
-  list.classList.remove("hidden");
-  quadView.classList.add("hidden");
+  const list = $("#todoList"), quadView = $("#todoQuadView"), wishView = $("#todoWishView");
+  const hint = $("#todoHint");
+  /* 三个模式互斥显示 */
+  if (list) list.classList.toggle("hidden", todoMode !== "list");
+  if (quadView) quadView.classList.toggle("hidden", todoMode !== "quad");
+  if (wishView) wishView.classList.toggle("hidden", todoMode !== "wish");
+  if (hint) hint.textContent = todoMode === "wish"
+    ? "想要的东西先记下，入手了打个勾"
+    : (todoMode === "quad" ? "按住 ⋮⋮ 拖动排序 · 点空白改象限" : "设定时间后会出现在时间线上");
+
+  if (todoMode === "quad") { renderTodoQuad(); return; }
+  if (todoMode === "wish") { renderWishes(); return; }
 
   const all = Store.data.todos;
   if (!all.length) {
@@ -852,6 +855,105 @@ function renderTodoQuad() {
       </div>
     </div>`;
   }).join("");
+}
+
+/* =========================================================
+   好物欲望清单
+   数据：Store.data.wishes = [{id,name,price,note,wantedAt,got}]
+   未入手在前、已入手划线沉底；删除进回收站（30 天可恢复）
+   ========================================================= */
+function fmtPrice(p) {
+  const s = String(p == null ? "" : p).trim();
+  if (!s) return "";
+  const n = Number(s.replace(/[¥￥,\s]/g, ""));
+  if (!isFinite(n) || n < 0) return esc(s);
+  return "¥" + (Number.isInteger(n) ? n : n.toFixed(2));
+}
+
+function renderWishes() {
+  const box = $("#wishList");
+  const sum = $("#wishSummary");
+  if (!box) return;
+  const all = Array.isArray(Store.data.wishes) ? Store.data.wishes : [];
+  /* 未入手优先，各自按加入日期倒序（新加的在上） */
+  const sorted = all.slice().sort((a, b) => {
+    if (!!a.got !== !!b.got) return a.got ? 1 : -1;
+    return String(b.wantedAt || "").localeCompare(String(a.wantedAt || ""));
+  });
+
+  if (sum) {
+    const pending = all.filter(w => !w.got);
+    const got = all.length - pending.length;
+    const total = pending.reduce((s, w) => {
+      const n = Number(String(w.price || "").replace(/[¥￥,\s]/g, ""));
+      return s + (isFinite(n) && n > 0 ? n : 0);
+    }, 0);
+    sum.innerHTML = all.length
+      ? `想买 <b>${pending.length}</b> 件 · 已入手 ${got} 件` +
+        (total > 0 ? ` · 预计 <b>¥${Number.isInteger(total) ? total : total.toFixed(2)}</b>` : "")
+      : `还没有记录。在上面写下第一件想要的东西。`;
+  }
+
+  if (!sorted.length) {
+    box.innerHTML = `<div class="empty-hint">清单是空的～ 想到什么就记一条</div>`;
+    return;
+  }
+  box.innerHTML = sorted.map(w => {
+    const price = fmtPrice(w.price);
+    const meta = [
+      price ? `<span class="wish-price-tag">${price}</span>` : "",
+      w.note ? `<span>${esc(w.note)}</span>` : "",
+      w.wantedAt ? `<span>${esc(fmtDateShort(w.wantedAt))} 加入</span>` : ""
+    ].filter(Boolean).join("");
+    return `<div class="wish-item ${w.got ? "got" : ""}" data-id="${esc(w.id)}">
+      <div class="wish-main">
+        <div class="wish-name-text">${esc(w.name)}</div>
+        ${meta ? `<div class="wish-meta">${meta}</div>` : ""}
+      </div>
+      <button class="wish-got" data-act="got" type="button" title="${w.got ? "取消已入手" : "标记已入手"}">${w.got ? "↩ 还原" : "✓ 已入手"}</button>
+      <button class="wish-del" data-act="del" type="button" title="删除">✕</button>
+    </div>`;
+  }).join("");
+}
+
+function addWish() {
+  const nameEl = $("#wishName"), priceEl = $("#wishPrice"), noteEl = $("#wishNote");
+  const name = nameEl ? nameEl.value.trim() : "";
+  if (!name) { if (nameEl) nameEl.focus(); toast("先写下想要什么"); return; }
+  if (!Array.isArray(Store.data.wishes)) Store.data.wishes = [];
+  Store.data.wishes.push({
+    id: uid(),
+    name,
+    price: priceEl ? priceEl.value.trim() : "",
+    note: noteEl ? noteEl.value.trim() : "",
+    wantedAt: todayStr(),
+    got: false
+  });
+  if (nameEl) nameEl.value = "";
+  if (priceEl) priceEl.value = "";
+  if (noteEl) noteEl.value = "";
+  Store.save();
+  renderWishes();
+  toast("已加入好物清单");
+}
+
+function toggleWishGot(id) {
+  const w = (Store.data.wishes || []).find(x => x.id === id);
+  if (!w) return;
+  w.got = !w.got;
+  Store.save();
+  renderWishes();
+  toast(w.got ? "已入手 🎉" : "已还原到想买清单");
+}
+
+function deleteWish(id) {
+  const w = (Store.data.wishes || []).find(x => x.id === id);
+  if (!w) return;
+  Trash.add("wish", w, w.name);
+  Store.data.wishes = (Store.data.wishes || []).filter(x => x.id !== id);
+  Store.save();
+  renderWishes();
+  toast("已删除（30 天内可在回收站恢复）");
 }
 
 /* =========================================================
@@ -2190,6 +2292,7 @@ function normalizeData(obj) {
     countdowns: arr(obj.countdowns, cur && cur.countdowns),
     logs: arr(obj.logs, cur && cur.logs),
     projects: arr(obj.projects, cur && cur.projects),
+    wishes: arr(obj.wishes, cur && cur.wishes),
     reviews: (obj.reviews && typeof obj.reviews === "object" && !Array.isArray(obj.reviews))
       ? obj.reviews
       : ((cur && cur.reviews) || {}),
@@ -4068,6 +4171,28 @@ function init() {
     todoMode = b.dataset.mode;
     $$(".seg-btn", todoSeg).forEach(x => x.classList.toggle("active", x === b));
     renderTodo();
+  });
+
+  /* 好物清单 */
+  const wishAdd = $("#wishAdd");
+  if (wishAdd) wishAdd.addEventListener("click", addWish);
+  const wishName = $("#wishName");
+  if (wishName) wishName.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addWish(); }
+  });
+  const wishPrice = $("#wishPrice");
+  if (wishPrice) wishPrice.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addWish(); }
+  });
+  const wishList = $("#wishList");
+  if (wishList) wishList.addEventListener("click", e => {
+    const btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    const item = btn.closest(".wish-item");
+    if (!item) return;
+    const id = item.dataset.id;
+    if (btn.dataset.act === "got") toggleWishGot(id);
+    else if (btn.dataset.act === "del") deleteWish(id);
   });
 
   /* 倒计时 */

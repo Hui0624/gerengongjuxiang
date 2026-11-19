@@ -30,6 +30,7 @@
 - 改：`.gitignore`（加 `*secrets*.json`/`.env`）、`STATE.md`、`HANDOFF.md`、`AGENTS.md`
 - 改：`app.js`（自动同步冲突提示 + innerHTML 转义 + safeUrl/safeCssUrl）、`server.js`（ESM 兼容）、`sw.js`（VERSION `wb-v11` → `wb-v11-sec`）
 - 再改（同日晚，用户新需求）：`app.js`+`index.html`+`style.css` —— ① 引导式记录（QL_PROMPTS 三组问题，完成待办弹具体引导而非空框）；② 四象限完整拖拽排序（`moveTodoInQuad` 跨格置顶/格内自由排，插入线 CSS）。`sw.js` → `wb-v11-sec2`。单测：`test-quad-sort.mjs` 7 PASS、引导分类 6 PASS
+- 2026-11-19 好物欲望清单：`data.js`(三处+回收站映射) / `app.js`(renderWishes 等 5 函数 + normalizeData + renderTodo 三态) / `index.html`(第三个 seg + #todoWishView) / `style.css`(wish-* 样式)。`sw.js` → `wb-v11-sec3`。数据层单测 8 PASS
 
 ## 下一步
 

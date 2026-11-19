@@ -119,6 +119,9 @@ const DEFAULT_DATA = {
   logs: [],
   /* 项目档案：从流水按 projectId 聚合，不单独维护 */
   projects: [],
+  /* 好物欲望清单：{ id, name, price, note, wantedAt, got }
+     price/note 可选；got=true 表示已入手（列表划线沉底） */
+  wishes: [],
   /* 周复盘的人工总结：{ "2026-W45": "这周的一句话" } */
   reviews: {},
   /* 回收站：删除的数据不真删，先挪到这里，30 天内可恢复
@@ -136,6 +139,8 @@ function fillItemDefaults(d) {
   d.logs = (Array.isArray(d.logs) ? d.logs : []).map(l =>
     Object.assign({ detail: "", tags: [], link: "", projectId: "", type: "win", ts: 0 }, l));
   d.projects = Array.isArray(d.projects) ? d.projects : [];
+  d.wishes = (Array.isArray(d.wishes) ? d.wishes : []).map(w =>
+    Object.assign({ price: "", note: "", wantedAt: todayStr(), got: false }, w));
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   /* 回收站：只保留结构正确的记录，丢掉脏数据 */
   d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);
@@ -167,6 +172,7 @@ const Store = {
       countdowns: parsed && Array.isArray(parsed.countdowns) ? parsed.countdowns : JSON.parse(JSON.stringify(DEFAULT_DATA.countdowns)),
       logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
       projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
+      wishes: parsed && Array.isArray(parsed.wishes) ? parsed.wishes : [],
       reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {},
       trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : []
     };
@@ -204,12 +210,12 @@ const Trash = {
 
   /* kind → 数据数组的字段名 */
   arrKey(kind) {
-    return { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs" }[kind] || "";
+    return { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs", wish: "wishes" }[kind] || "";
   },
 
   /* 可读名字，回收站里显示 */
   kindName(kind) {
-    return { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录" }[kind] || "条目";
+    return { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录", wish: "好物" }[kind] || "条目";
   },
 
   /* 移入回收站并返回被删的对象（方便调用方继续 filter 原数组） */
@@ -345,7 +351,7 @@ const Snapshot = {
   summary(data) {
     if (!data) return "";
     const n = k => (Array.isArray(data[k]) ? data[k].length : 0);
-    return `待办 ${n("todos")} · 记录 ${n("logs")} · 技能 ${n("skills")} · 打卡 ${n("habits")} · 倒计时 ${n("countdowns")}`;
+    return `待办 ${n("todos")} · 记录 ${n("logs")} · 技能 ${n("skills")} · 打卡 ${n("habits")} · 倒计时 ${n("countdowns")} · 好物 ${n("wishes")}`;
   }
 };
 

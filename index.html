@@ -206,8 +206,9 @@
           <div class="seg" id="todoSeg">
             <button class="seg-btn active" data-mode="list">列表</button>
             <button class="seg-btn" data-mode="quad">四象限</button>
+            <button class="seg-btn" data-mode="wish">好物清单</button>
           </div>
-          <span class="hint">设定时间后会出现在时间线上</span>
+          <span class="hint" id="todoHint">设定时间后会出现在时间线上</span>
         </div>
         <div class="todo-add">
           <input id="todoText" class="input todo-quick" placeholder="试试：明天下午3点 交作业（回车即加）" />
@@ -227,6 +228,18 @@
         </div>
         <div id="todoList" class="todo-list"></div>
         <div id="todoQuadView" class="todo-quad hidden"></div>
+
+        <!-- 好物欲望清单 -->
+        <div id="todoWishView" class="wish-view hidden">
+          <div class="wish-add">
+            <input id="wishName" class="input wish-name" placeholder="想要什么？例如：机械键盘" />
+            <input id="wishPrice" class="input wish-price" placeholder="预算 ¥" inputmode="decimal" />
+            <input id="wishNote" class="input wish-note" placeholder="备注 / 链接（可空）" />
+            <button id="wishAdd" class="btn primary" type="button">＋ 加入</button>
+          </div>
+          <div class="wish-summary" id="wishSummary"></div>
+          <div id="wishList" class="wish-list"></div>
+        </div>
       </section>
 
       <!-- 记录 / 沉淀 -->
