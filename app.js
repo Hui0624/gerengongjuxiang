@@ -780,11 +780,16 @@ function todoItemHTML(t) {
 
 function renderTodo() {
   const list = $("#todoList"), quadView = $("#todoQuadView"), wishView = $("#todoWishView");
+  const addBar = $("#todoAddBar"), adv = $("#todoAdv");
   const hint = $("#todoHint");
   /* 列表 / 四象限 / 好物欲望清单三态互斥 */
   if (list) list.classList.toggle("hidden", todoMode !== "list");
   if (quadView) quadView.classList.toggle("hidden", todoMode !== "quad");
   if (wishView) wishView.classList.toggle("hidden", todoMode !== "wish");
+  /* 待办输入框只在「列表」模式显示；四象限/好物清单各有自己的交互，不显示它。
+     列表模式不碰 #todoAdv 的 hidden，保留「更多」按钮的展开状态。 */
+  if (addBar) addBar.classList.toggle("hidden", todoMode !== "list");
+  if (adv && todoMode !== "list") adv.classList.add("hidden");
   if (hint) hint.textContent = todoMode === "wish"
     ? "记想要的东西，点「待买」变「已入手」"
     : (todoMode === "quad" ? "按住 ⋮⋮ 拖动排序 · 点空白改象限" : "设定时间后会出现在时间线上");
