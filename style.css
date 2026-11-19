@@ -1576,13 +1576,19 @@ input, textarea, select { font-family: inherit; }
   .ql-sub { max-width: 40%; }
 }
 
-/* 导航到 7 项了，窄屏再收一点，避免最后一项被挤出屏幕 */
+/* 导航到 8 项了（含好物欲望），窄屏再收一点，避免最后一项被挤出屏幕 */
 @media (max-width: 560px) {
-  .sidenav { gap: 3px; padding: 6px 3px; }
-  .nav-item { font-size: 10px; padding: 6px 0; gap: 2px; }
-  .nav-item > span { white-space: nowrap; }
-  .nav-item .ni { width: 17px; height: 17px; }
-  .nav-item .ni svg { width: 16px; height: 16px; }
+  .sidenav { gap: 2px; padding: 6px 2px; }
+  .nav-item { font-size: 9.5px; padding: 6px 0; gap: 2px; }
+  .nav-item > span { white-space: nowrap; letter-spacing: -.3px; }
+  .nav-item .ni { width: 16px; height: 16px; }
+  .nav-item .ni svg { width: 15px; height: 15px; }
+}
+/* 超窄屏（≤390px）：8 项平铺更紧，图标再缩一号 */
+@media (max-width: 390px) {
+  .sidenav { gap: 1px; padding: 6px 1px; }
+  .nav-item { font-size: 9px; padding: 6px 0; }
+  .nav-item .ni svg { width: 14px; height: 14px; }
 }
 
 /* =========================================================

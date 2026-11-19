@@ -779,18 +779,12 @@ function todoItemHTML(t) {
 }
 
 function renderTodo() {
-  const list = $("#todoList"), quadView = $("#todoQuadView"), wishView = $("#todoWishView");
-  const hint = $("#todoHint");
-  /* 三个模式互斥显示 */
+  const list = $("#todoList"), quadView = $("#todoQuadView");
+  /* 列表 / 四象限两态互斥显示（好物欲望清单已是独立模块，不在这里） */
   if (list) list.classList.toggle("hidden", todoMode !== "list");
   if (quadView) quadView.classList.toggle("hidden", todoMode !== "quad");
-  if (wishView) wishView.classList.toggle("hidden", todoMode !== "wish");
-  if (hint) hint.textContent = todoMode === "wish"
-    ? "想要的东西先记下，入手了打个勾"
-    : (todoMode === "quad" ? "按住 ⋮⋮ 拖动排序 · 点空白改象限" : "设定时间后会出现在时间线上");
 
   if (todoMode === "quad") { renderTodoQuad(); return; }
-  if (todoMode === "wish") { renderWishes(); return; }
 
   const all = Store.data.todos;
   if (!all.length) {
@@ -934,7 +928,7 @@ function addWish() {
   if (noteEl) noteEl.value = "";
   Store.save();
   renderWishes();
-  toast("已加入好物清单");
+  toast("已加入好物欲望清单");
 }
 
 function toggleWishGot(id) {
@@ -3835,6 +3829,8 @@ function switchView(view) {
     else renderTimeline(true);
   } else if (view === "todo") {
     renderTodo();
+  } else if (view === "wish") {
+    renderWishes();
   } else if (view === "log") {
     if (logMode === "review") renderReview(); else renderLog();
   } else if (view === "countdown") {
@@ -3849,6 +3845,7 @@ function renderAll(scrollToNow = true) {
   if (tlMode === "week") renderWeek();
   renderNextCard();
   renderTodo();
+  renderWishes();
   renderSkills();
   renderCheckin();
   renderCountdown();
@@ -4173,7 +4170,7 @@ function init() {
     renderTodo();
   });
 
-  /* 好物清单 */
+  /* 好物欲望清单（独立模块） */
   const wishAdd = $("#wishAdd");
   if (wishAdd) wishAdd.addEventListener("click", addWish);
   const wishName = $("#wishName");
