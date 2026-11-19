@@ -32,6 +32,7 @@
 - 再改（同日晚，用户新需求）：`app.js`+`index.html`+`style.css` —— ① 引导式记录（QL_PROMPTS 三组问题，完成待办弹具体引导而非空框）；② 四象限完整拖拽排序（`moveTodoInQuad` 跨格置顶/格内自由排，插入线 CSS）。`sw.js` → `wb-v11-sec2`。单测：`test-quad-sort.mjs` 7 PASS、引导分类 6 PASS
 - 2026-11-19 好物欲望清单：`data.js`(三处+回收站映射) / `app.js`(renderWishes 等 5 函数 + normalizeData) / `index.html` / `style.css`(wish-* 样式)。`sw.js` → `wb-v11-sec3`。数据层单测 8 PASS
 - 2026-11-19 同日改为独立模块：用户明确「不放待办里、不要时间/重要性」。导航加第 4 项 `data-view=wish`「好物欲望」，`#view-wish` 独立 section；待办 seg 删掉好物按钮恢复两项；`renderTodo` 去掉 wish 分支，`switchView`/`renderAll` 接 `renderWishes`。导航 8 项窄屏适配。`sw.js` → `wb-v11-sec4`
+- 2026-11-20 改回待办第三格（用户最终确认）：撤销左侧独立 wish 项与 `#view-wish`，待办 seg 恢复三标签「列表/四象限/好物欲望清单」，`#todoWishView` 搬回待办内；`renderTodo` 恢复 wish 三态，`switchView`/`renderAll` 去掉独立接入；导航恢复 7 项。状态标签化：新加显示「待买」(橙 is-todo)，点一下变「已入手」(灰 is-got + 划线沉底)，`wish-state` 样式。`sw.js` → `wb-v11-sec5`
 
 ## 下一步
 

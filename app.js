@@ -779,12 +779,18 @@ function todoItemHTML(t) {
 }
 
 function renderTodo() {
-  const list = $("#todoList"), quadView = $("#todoQuadView");
-  /* 列表 / 四象限两态互斥显示（好物欲望清单已是独立模块，不在这里） */
+  const list = $("#todoList"), quadView = $("#todoQuadView"), wishView = $("#todoWishView");
+  const hint = $("#todoHint");
+  /* 列表 / 四象限 / 好物欲望清单三态互斥 */
   if (list) list.classList.toggle("hidden", todoMode !== "list");
   if (quadView) quadView.classList.toggle("hidden", todoMode !== "quad");
+  if (wishView) wishView.classList.toggle("hidden", todoMode !== "wish");
+  if (hint) hint.textContent = todoMode === "wish"
+    ? "记想要的东西，点「待买」变「已入手」"
+    : (todoMode === "quad" ? "按住 ⋮⋮ 拖动排序 · 点空白改象限" : "设定时间后会出现在时间线上");
 
   if (todoMode === "quad") { renderTodoQuad(); return; }
+  if (todoMode === "wish") { renderWishes(); return; }
 
   const all = Store.data.todos;
   if (!all.length) {
@@ -904,7 +910,7 @@ function renderWishes() {
         <div class="wish-name-text">${esc(w.name)}</div>
         ${meta ? `<div class="wish-meta">${meta}</div>` : ""}
       </div>
-      <button class="wish-got" data-act="got" type="button" title="${w.got ? "取消已入手" : "标记已入手"}">${w.got ? "↩ 还原" : "✓ 已入手"}</button>
+      <button class="wish-state ${w.got ? "is-got" : "is-todo"}" data-act="got" type="button" title="${w.got ? "点一下改回待买" : "点一下标记已入手"}">${w.got ? "已入手" : "待买"}</button>
       <button class="wish-del" data-act="del" type="button" title="删除">✕</button>
     </div>`;
   }).join("");
@@ -937,7 +943,7 @@ function toggleWishGot(id) {
   w.got = !w.got;
   Store.save();
   renderWishes();
-  toast(w.got ? "已入手 🎉" : "已还原到想买清单");
+  toast(w.got ? "已入手 🎉" : "已改回待买");
 }
 
 function deleteWish(id) {
@@ -3829,8 +3835,6 @@ function switchView(view) {
     else renderTimeline(true);
   } else if (view === "todo") {
     renderTodo();
-  } else if (view === "wish") {
-    renderWishes();
   } else if (view === "log") {
     if (logMode === "review") renderReview(); else renderLog();
   } else if (view === "countdown") {
@@ -3845,7 +3849,6 @@ function renderAll(scrollToNow = true) {
   if (tlMode === "week") renderWeek();
   renderNextCard();
   renderTodo();
-  renderWishes();
   renderSkills();
   renderCheckin();
   renderCountdown();

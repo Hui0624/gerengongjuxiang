@@ -1576,19 +1576,13 @@ input, textarea, select { font-family: inherit; }
   .ql-sub { max-width: 40%; }
 }
 
-/* 导航到 8 项了（含好物欲望），窄屏再收一点，避免最后一项被挤出屏幕 */
+/* 导航 7 项，窄屏收一点，避免最后一项被挤出屏幕 */
 @media (max-width: 560px) {
-  .sidenav { gap: 2px; padding: 6px 2px; }
-  .nav-item { font-size: 9.5px; padding: 6px 0; gap: 2px; }
-  .nav-item > span { white-space: nowrap; letter-spacing: -.3px; }
-  .nav-item .ni { width: 16px; height: 16px; }
-  .nav-item .ni svg { width: 15px; height: 15px; }
-}
-/* 超窄屏（≤390px）：8 项平铺更紧，图标再缩一号 */
-@media (max-width: 390px) {
-  .sidenav { gap: 1px; padding: 6px 1px; }
-  .nav-item { font-size: 9px; padding: 6px 0; }
-  .nav-item .ni svg { width: 14px; height: 14px; }
+  .sidenav { gap: 3px; padding: 6px 3px; }
+  .nav-item { font-size: 10px; padding: 6px 0; gap: 2px; }
+  .nav-item > span { white-space: nowrap; }
+  .nav-item .ni { width: 17px; height: 17px; }
+  .nav-item .ni svg { width: 16px; height: 16px; }
 }
 
 /* =========================================================
@@ -1834,14 +1828,17 @@ body.quad-dragging { user-select: none; }
 .wish-name-text { font-size: 13.5px; color: var(--text); font-weight: 560; word-break: break-word; }
 .wish-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
 .wish-price-tag { color: var(--green); font-weight: 600; }
-.wish-item.got { opacity: .58; }
+.wish-item.got { opacity: .66; }
 .wish-item.got .wish-name-text { text-decoration: line-through; color: var(--muted); }
-.wish-got {
-  flex: none; border: 1px solid var(--green-line); background: var(--green-soft);
-  color: var(--green); font-size: 12px; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+/* 状态标签：待买=橙可点，已入手=灰（点一下可还原） */
+.wish-state {
+  flex: none; font-size: 12px; padding: 4px 10px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; border: 1px solid;
 }
-.wish-got:hover { border-color: var(--green); }
-.wish-item.got .wish-got { background: none; color: var(--muted); border-color: var(--border); }
+.wish-state.is-todo { color: var(--orange); border-color: var(--orange); background: transparent; }
+.wish-state.is-todo:hover { background: rgba(230, 140, 40, .12); }
+.wish-state.is-got { color: var(--muted); border-color: var(--border); background: var(--panel); }
+.wish-state.is-got:hover { border-color: var(--muted); }
 .wish-del {
   flex: none; border: none; background: none; color: var(--muted);
   font-size: 13px; padding: 4px 7px; border-radius: 6px; cursor: pointer;

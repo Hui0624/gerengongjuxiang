@@ -102,10 +102,6 @@
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg></span>
         <span>待办</span>
       </button>
-      <button class="nav-item" data-view="wish">
-        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 11.2a1.6 1.6 0 0 1-1.6 1.4H7.6A1.6 1.6 0 0 1 6 19.2L5 8z"/><path d="M9 8V6.4a3 3 0 0 1 6 0V8"/></svg></span>
-        <span>好物欲望</span>
-      </button>
       <button class="nav-item" data-view="log">
         <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9L19 7.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14.8 3.6V7.6H18.8"/><path d="M8.4 12h7M8.4 15.6h4.6"/></svg></span>
         <span>记录</span>
@@ -210,8 +206,9 @@
           <div class="seg" id="todoSeg">
             <button class="seg-btn active" data-mode="list">列表</button>
             <button class="seg-btn" data-mode="quad">四象限</button>
+            <button class="seg-btn" data-mode="wish">好物欲望清单</button>
           </div>
-          <span class="hint">设定时间后会出现在时间线上</span>
+          <span class="hint" id="todoHint">设定时间后会出现在时间线上</span>
         </div>
         <div class="todo-add">
           <input id="todoText" class="input todo-quick" placeholder="试试：明天下午3点 交作业（回车即加）" />
@@ -231,22 +228,18 @@
         </div>
         <div id="todoList" class="todo-list"></div>
         <div id="todoQuadView" class="todo-quad hidden"></div>
-      </section>
 
-      <!-- 好物欲望清单（独立模块） -->
-      <section id="view-wish" class="view">
-        <div class="section-head">
-          <h2>好物欲望清单</h2>
-          <span class="hint">想要的东西先记下，入手了打个勾 · 不设时间也不分轻重</span>
+        <!-- 好物欲望清单（待办第三格） -->
+        <div id="todoWishView" class="wish-view hidden">
+          <div class="wish-add">
+            <input id="wishName" class="input wish-name" placeholder="想要什么？例如：机械键盘" />
+            <input id="wishPrice" class="input wish-price" placeholder="预算 ¥" inputmode="decimal" />
+            <input id="wishNote" class="input wish-note" placeholder="备注 / 链接（可空）" />
+            <button id="wishAdd" class="btn primary" type="button">＋ 加入</button>
+          </div>
+          <div class="wish-summary" id="wishSummary"></div>
+          <div id="wishList" class="wish-list"></div>
         </div>
-        <div class="wish-add">
-          <input id="wishName" class="input wish-name" placeholder="想要什么？例如：机械键盘" />
-          <input id="wishPrice" class="input wish-price" placeholder="预算 ¥" inputmode="decimal" />
-          <input id="wishNote" class="input wish-note" placeholder="备注 / 链接（可空）" />
-          <button id="wishAdd" class="btn primary" type="button">＋ 加入</button>
-        </div>
-        <div class="wish-summary" id="wishSummary"></div>
-        <div id="wishList" class="wish-list"></div>
       </section>
 
       <!-- 记录 / 沉淀 -->
