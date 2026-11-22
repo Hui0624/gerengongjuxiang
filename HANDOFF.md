@@ -34,6 +34,8 @@
 - 2026-11-19 同日改为独立模块：用户明确「不放待办里、不要时间/重要性」。导航加第 4 项 `data-view=wish`「好物欲望」，`#view-wish` 独立 section；待办 seg 删掉好物按钮恢复两项；`renderTodo` 去掉 wish 分支，`switchView`/`renderAll` 接 `renderWishes`。导航 8 项窄屏适配。`sw.js` → `wb-v11-sec4`
 - 2026-11-20 改回待办第三格（用户最终确认）：撤销左侧独立 wish 项与 `#view-wish`，待办 seg 恢复三标签「列表/四象限/好物欲望清单」，`#todoWishView` 搬回待办内；`renderTodo` 恢复 wish 三态，`switchView`/`renderAll` 去掉独立接入；导航恢复 7 项。状态标签化：新加显示「待买」(橙 is-todo)，点一下变「已入手」(灰 is-got + 划线沉底)，`wish-state` 样式。`sw.js` → `wb-v11-sec5`
 - 2026-11-20 待办输入区按模式显隐：用户指出切到好物清单时待办输入框还显示。`.todo-add` 加 `id=todoAddBar`，renderTodo 里非 list 模式隐藏 addBar、收起 #todoAdv；list 模式不碰 adv 以保留「更多」展开态。`sw.js` → `wb-v11-sec6`
+- 2026-11-22 首页瘦身 + 导航做减法（用户预览后确认）：首页只留行动中枢/待办/课程/打卡，删快捷栏、统计卡、周主题、技能进度、倒计时；`renderHome` 删 elStats early return 及对应渲染。导航 7→5（首页/时间线/待办/记录/更多），技能/打卡/倒计时收进 `openMoreMenu` 弹出菜单，`switchView` 高亮更多按钮。三页面与数据都在。`sw.js` → `wb-v11-sec7`
+- 2026-11-22 用户自己在 GitHub 网页删了 `飞书提醒/` 目录（main `8057ab7`）；本地目录仍在但不影响运行，推送基于当前树继承不会还原它
 
 ## 下一步
 

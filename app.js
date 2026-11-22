@@ -1067,6 +1067,52 @@ function openQuadMenu(anchor, id) {
   setTimeout(() => document.addEventListener("pointerdown", onQuadMenuOutside, true), 0);
 }
 
+/* ---------- 「更多」导航菜单：技能 / 打卡 / 倒计时 ---------- */
+let moreMenu = null;
+const MORE_ITEMS = [
+  { view: "skills",    name: "技能",  icon: "📊", desc: "技能进度与训练" },
+  { view: "checkin",   name: "打卡",  icon: "✅", desc: "习惯打卡与统计" },
+  { view: "countdown", name: "倒计时", icon: "⏳", desc: "重要日期提醒" }
+];
+function onMoreMenuOutside(e) {
+  if (!moreMenu) return;
+  if (!moreMenu.contains(e.target) && !e.target.closest("[data-more]")) closeMoreMenu();
+}
+function closeMoreMenu() {
+  if (moreMenu) { moreMenu.remove(); moreMenu = null; }
+  document.removeEventListener("pointerdown", onMoreMenuOutside, true);
+}
+function openMoreMenu(anchor) {
+  if (moreMenu) { closeMoreMenu(); return; }
+  const menu = document.createElement("div");
+  menu.className = "more-menu";
+  menu.innerHTML = '<div class="mm-title">更多功能</div>' + MORE_ITEMS.map(it =>
+    '<button type="button" class="mm-opt" data-view="' + it.view + '">' +
+      '<span class="mm-ico">' + it.icon + '</span>' +
+      '<span class="mm-body"><span class="mm-name">' + it.name + '</span>' +
+      '<span class="mm-desc">' + it.desc + '</span></span>' +
+    '</button>').join("");
+  document.body.appendChild(menu);
+  moreMenu = menu;
+  /* 定位：桌面竖排导航在左、手机横排在底，统一按按钮位置弹出 */
+  const r = anchor.getBoundingClientRect();
+  const w = 196;
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  const below = r.bottom + 6;
+  const top = (below + menu.offsetHeight > window.innerHeight - 8)
+    ? Math.max(8, r.top - menu.offsetHeight - 6) : below;
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+  menu.addEventListener("click", e => {
+    const b = e.target.closest("[data-view]");
+    if (!b) return;
+    const view = b.dataset.view;
+    closeMoreMenu();
+    switchView(view);
+  });
+  setTimeout(() => document.addEventListener("pointerdown", onMoreMenuOutside, true), 0);
+}
+
 /* ---------- 四象限视图：Pointer Events 拖拽 ----------
    HTML5 的 draggable / dragstart 在安卓 Chrome 上基本不工作，
    所以自己实现一套，桌面鼠标与触屏共用。 */
@@ -2969,11 +3015,8 @@ function renderQuick() {
    首页总览（聚合今日待办 / 课程 / 打卡 / 技能）
    ========================================================= */
 function renderHome() {
-  const elStats = $("#homeStats"), elTodo = $("#homeTodo"), elCourses = $("#homeCourses");
-  const elHabits = $("#homeHabits"), elSkills = $("#homeSkills");
-  if (!elStats) return;
-
-  renderQuick();
+  const elTodo = $("#homeTodo"), elCourses = $("#homeCourses"), elHabits = $("#homeHabits");
+  if (!elTodo) return;
 
   const now = new Date();
   const day = todayWeekday();
@@ -2986,18 +3029,12 @@ function renderHome() {
     .filter(t => !t.done && t.date && t.date < today)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const todos = [...overdueT, ...todayT];
-  const todoDone = todayT.filter(t => t.done).length;
   // 今日课程（按周次过滤）
   const courses = Store.data.courses
     .filter(c => c.day === day && inWeek(c, wno))
     .sort((a, b) => hhmmToMin(a.start) - hhmmToMin(b.start));
-  // 打卡（只统计今天该打的）
+  // 打卡
   const habits = Store.data.habits;
-  const dueHabits = habits.filter(habitDueToday);
-  const todayChecked = dueHabits.filter(x => x.history && x.history[today]).length;
-  // 技能平均进度
-  const skills = Store.data.skills;
-  const avg = skills.length ? Math.round(skills.reduce((s, k) => s + (k.progress || 0), 0) / skills.length) : 0;
 
   $("#homeDate").textContent =
     `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${weekdayName(day)}`;
@@ -3045,67 +3082,6 @@ function renderHome() {
     }
   }
 
-  /* 周主题焦点块：本周自动聚焦一个技能，可自定义 */
-  const elWT = $("#homeWeekTheme");
-  if (elWT) {
-    const wt = getWeeklyTheme();
-    if (!wt.skill) {
-      elWT.innerHTML = `<div class="wt-empty">🎯 周主题：先去「技能」加一张技能卡，每周会自动聚焦一个来学</div>`;
-    } else {
-      const wkDone = trainWeekCount(wt.skill);
-      const wkTarget = wt.target || 5;
-      elWT.innerHTML = `
-        <div class="wt-card">
-          <div class="wt-head">
-            <span class="wt-badge">🎯 本周主题</span>
-            <span class="wt-week">第 ${wt.weekNo} 周${wt.isOverride ? " · 已自定义" : " · 自动轮转"}</span>
-          </div>
-          <div class="wt-body">
-            <span class="wt-icon">${esc(wt.skill.icon || "⭐")}</span>
-            <div class="wt-info">
-              <div class="wt-name">${esc(wt.skill.name)}</div>
-              <div class="wt-goal">${wt.goal ? "本周目标：" + esc(wt.goal) : "本周聚焦这个技能"}</div>
-              <div class="wt-train">本周已练 <b>${wkDone}/${wkTarget}</b> 次 · 掌握度 ${wt.skill.progress || 0}%</div>
-            </div>
-            <div class="wt-prog"><div class="wt-ring" style="--p:${Math.min(100, wt.skill.progress || 0)}"><span>${wt.skill.progress || 0}%</span></div></div>
-          </div>
-          <div class="wt-actions">
-            <button class="btn primary" data-train="${wt.skill.id}">＋ 练一次</button>
-            <button class="btn ghost" data-plan="${wt.skill.id}">生成今日训练待办</button>
-            <button class="btn ghost" data-view="skills">技能页 →</button>
-          </div>
-        </div>`;
-      const tr = elWT.querySelector("[data-train]");
-      if (tr) tr.addEventListener("click", () => { trainSkill(tr.dataset.train); });
-      const pl = elWT.querySelector("[data-plan]");
-      if (pl) pl.addEventListener("click", () => planTrainTodo(wt.skill));
-      const go = elWT.querySelector("[data-view]");
-      if (go) go.addEventListener("click", () => switchView("skills"));
-    }
-  }
-
-  const I = {
-    todo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 6 8.5 9.5 5"/><path d="M4 13.5 6 15.5 9.5 12"/><path d="M4 20.5 6 22 9.5 19" opacity=".45"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 20.5H18"/></svg>`,
-    course: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.4"/><path d="M8 3.2v3.4M16 3.2v3.4M3.5 10h17"/><path d="M8 14h3.5M8 17.2h6"/></svg>`,
-    checkin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c3.6 0 6.5-2.7 6.5-6.2 0-2.4-1.3-4.2-3-6.1-1.3-1.5-2.6-3.1-3-5.2-.6 1.6-1.7 2.7-2.9 4C8 9.2 6.4 11 6.4 13.5 6.4 17.8 8.9 21 12 21z"/></svg>`,
-    skill: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9.5M9.3 19V5M14.6 19v-7.5M20 19v-4.5"/><path d="M3 21h18"/></svg>`
-  };
-  const stats = [
-    { c: "blue", icon: I.todo, label: "今日待办", value: `${todoDone}/${todayT.length}`, sub: overdueT.length ? `逾期 ${overdueT.length} 项` : (todayT.length ? (todoDone === todayT.length ? "全部完成 🎉" : "进行中") : "暂无") },
-    { c: "green", icon: I.course, label: "今日课程", value: `${courses.length} 门`, sub: courses.length ? courses[0].name : "今天没课" },
-    { c: "orange", icon: I.checkin, label: "今日打卡", value: `${todayChecked}/${dueHabits.length}`, sub: dueHabits.length ? (todayChecked === dueHabits.length ? "已全打卡" : "待打卡") : "今天不用打卡" },
-    { c: "purple", icon: I.skill, label: "技能进度", value: `${avg}%`, sub: skills.length ? `共 ${skills.length} 项` : "暂无" }
-  ];
-  elStats.innerHTML = stats.map(s => `
-    <div class="stat-card" data-c="${s.c}">
-      <div class="stat-ic">${s.icon}</div>
-      <div class="stat-body">
-        <div class="stat-label">${s.label}</div>
-        <div class="stat-value">${s.value}</div>
-        <div class="stat-sub">${esc(s.sub)}</div>
-      </div>
-    </div>`).join("");
-
   // 今日待办（逾期置顶并标红）
   if (!todos.length) elTodo.innerHTML = `<div class="empty-hint">今天还没有待办</div>`;
   else elTodo.innerHTML = todos.slice(0, 8).map(t => {
@@ -3145,30 +3121,6 @@ function renderHome() {
     </div>`;
   }).join("");
 
-  // 技能进度
-  if (!skills.length) elSkills.innerHTML = `<div class="empty-hint">还没有技能</div>`;
-  else elSkills.innerHTML = skills.map(k => `
-    <div class="home-skill">
-      <div class="hs-top"><span class="hs-name">${esc(k.name)}</span><span class="hs-pct">${k.progress || 0}%</span></div>
-      <div class="hs-bar"><div class="hs-fill" style="width:${Math.min(100, k.progress || 0)}%"></div></div>
-    </div>`).join("");
-
-  // 最近倒计时
-  const elCD = $("#homeCountdown");
-  if (elCD) {
-    const cds = [...(Store.data.countdowns || [])].sort((a, b) => daysLeft(a.date) - daysLeft(b.date));
-    const cdHint = $("#homeCountHint");
-    if (cdHint) cdHint.textContent = cds.length ? `共 ${cds.length} 个` : "";
-    if (!cds.length) elCD.innerHTML = `<div class="empty-hint">还没有倒计时</div>`;
-    else {
-      const c = cds[0], left = daysLeft(c.date);
-      elCD.innerHTML = `<div class="home-cd-item">
-        <span class="hcd-name">${esc(c.name)}</span>
-        <span class="hcd-date">${c.date.slice(5).replace("-", "/")}</span>
-        <span class="hcd-left ${left < 0 ? "past" : ""}">${left >= 0 ? "还有 " + left + " 天" : "已过期"}</span>
-      </div>` + (cds.length > 1 ? `<div class="home-cd-more">另有 ${cds.length - 1} 个 →</div>` : "");
-    }
-  }
 }
 
 /* 周课表：整周适配 / 原生全屏 */
@@ -3818,7 +3770,12 @@ function setLogMode(mode) {
 }
 
 function switchView(view) {
-  $$(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+  /* 技能/打卡/倒计时收纳在「更多」里：切到这些视图时高亮更多按钮 */
+  const inMore = ["skills", "checkin", "countdown"].indexOf(view) >= 0;
+  $$(".nav-item").forEach(b => {
+    const on = b.dataset.view === view || (inMore && !!b.dataset.more);
+    b.classList.toggle("active", on);
+  });
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + view));
 
   // 入场动画：enter 只在切换瞬间挂上，700ms 后摘掉。
@@ -4115,9 +4072,12 @@ function init() {
   /* 直达记录页的复盘：?view=log&tab=review */
   if (v === "log" && new URLSearchParams(location.search).get("tab") === "review") setLogMode("review");
 
-  /* 导航 */
+  /* 导航：更多按钮弹菜单，其余切视图 */
   $$(".nav-item").forEach(btn =>
-    btn.addEventListener("click", () => switchView(btn.dataset.view))
+    btn.addEventListener("click", () => {
+      if (btn.dataset.more) { openMoreMenu(btn); return; }
+      if (btn.dataset.view) switchView(btn.dataset.view);
+    })
   );
 
   /* 今日 / 本周 切换 */

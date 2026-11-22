@@ -1780,6 +1780,20 @@ input, textarea, select { font-family: inherit; }
 .qm-opt.q4 .qm-dot { background: var(--muted); }
 .qm-ok { margin-left: auto; color: var(--green); }
 
+/* 「更多」导航菜单 */
+.more-menu { position: fixed; z-index: 135; width: 196px; padding: 6px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow-lg); }
+.mm-title { font-size: 11px; color: var(--muted); padding: 5px 8px 7px; }
+.mm-opt { display: flex; align-items: center; gap: 10px; width: 100%;
+  font: inherit; padding: 8px 9px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text); cursor: pointer; text-align: left; }
+.mm-opt:hover { background: var(--hover-bg); }
+.mm-ico { font-size: 17px; flex: 0 0 auto; width: 22px; text-align: center; }
+.mm-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mm-name { font-size: 13px; font-weight: 600; }
+.mm-desc { font-size: 11px; color: var(--muted); }
+
 /* 触屏只有把手是 touch-action:none，条目其余区域仍可正常滚动页面 */
 .qi-grip { flex: 0 0 auto; width: 14px; align-self: stretch;
   display: flex; align-items: center; justify-content: center;
