@@ -867,14 +867,14 @@ function renderTodoQuad() {
 
 /* =========================================================
    灵感区（更多菜单进入）
-   ideas = [{id,text,topic,createdAt}] · 手填主题标签，归纳页按 topic 聚合
+   ideas = [{id,text,topic,createdAt,archived,archivedAt}]
+   记下 → 用过后点「归档」收起 → 归档区可回看/还原/删除
    删除进回收站可恢复；五规范：单主色/线性图标/无嵌套卡/5档字号/左对齐
    ========================================================= */
 const IDEA_ICON = {
-  cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
-  book:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-  life:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/>',
-  bulb:'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>'
+  archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
+  restore:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/>'
 };
 const ideaSvg = (p) => '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
 
@@ -882,36 +882,32 @@ function ideaArr() {
   if (!Array.isArray(Store.data.ideas)) Store.data.ideas = [];
   return Store.data.ideas;
 }
+const fmtIdeaTime = tm => {
+  const s = String(tm || "");
+  return /\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(5).replace("-", "/") : s;
+};
 
-/* 按主题 texts 猜一个图标（纯展示，不影响数据） */
-function ideaTopicIcon(topic) {
-  const s = String(topic || "");
-  if (/技术|调试|代码|程序|硬件|嵌入|电子|机器人|i2c|esp|stm/i.test(s)) return IDEA_ICON.cpu;
-  if (/学习|考研|英语|课程|阅读|考试/i.test(s)) return IDEA_ICON.book;
-  if (/生活|杂事|日常|购物|穿搭|身体/i.test(s)) return IDEA_ICON.life;
-  return IDEA_ICON.bulb;
-}
-
+/* 记录页：只显示未归档 */
 function renderIdeas() {
   const box = $("#ideaList"), cnt = $("#ideaCount");
   if (!box) return;
-  const all = ideaArr().slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-  if (cnt) cnt.textContent = all.length + " 条";
-  if (!all.length) {
-    box.innerHTML = '<div class="idea-empty">还没有灵感。上面写一句试试。</div>';
+  const pending = ideaArr().filter(x => !x.archived)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  if (cnt) cnt.textContent = pending.length + " 条待归档";
+  if (!pending.length) {
+    box.innerHTML = '<div class="idea-empty">当前没有待归档的灵感。想到什么就在上面记一句。</div>';
     return;
   }
-  box.innerHTML = all.map(x => {
-    const tm = String(x.createdAt || "");
-    const showTime = /\d{4}-\d{2}-\d{2}/.test(tm) ? tm.slice(5).replace("-", "/") : tm;
+  box.innerHTML = pending.map(x => {
     return '<div class="idea-item" data-id="' + esc(x.id) + '">' +
       '<span class="mark"></span>' +
       '<div class="body"><div class="tx">' + esc(x.text) + '</div>' +
-      '<div class="meta"><span>' + esc(showTime) + '</span>' +
-      '<span class="idea-tag" data-act="topic" title="点一下改主题">' + esc(x.topic || "未分类") + '</span></div></div>' +
+      '<div class="meta"><span>' + esc(fmtIdeaTime(x.createdAt)) + '</span>' +
+      (x.topic && x.topic !== "未分类" ? '<span class="idea-tag" data-act="topic" title="点一下改标签">' + esc(x.topic) + '</span>' : '') +
+      '</div></div>' +
       '<div class="ops">' +
-      '<button class="idea-mini go" data-act="summary" type="button">' + ideaSvg(IDEA_ICON.bulb) + '归纳</button>' +
-      '<button class="idea-mini" data-act="del" type="button" title="删除">' + ideaSvg('<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/>') + '</button>' +
+      '<button class="idea-mini go" data-act="archive" type="button" title="归档这条">' + ideaSvg(IDEA_ICON.archive) + '归档</button>' +
+      '<button class="idea-mini" data-act="del" type="button" title="删除">' + ideaSvg(IDEA_ICON.trash) + '</button>' +
       '</div></div>';
   }).join("");
 }
@@ -920,21 +916,20 @@ function addIdea() {
   const el = $("#ideaInput");
   const text = el ? el.value.trim() : "";
   if (!text) { if (el) el.focus(); toast("写一句再记"); return; }
-  ideaArr().unshift({ id: uid(), text, topic: "未分类", createdAt: todayStr() });
+  ideaArr().unshift({ id: uid(), text, topic: "未分类", createdAt: todayStr(), archived: false, archivedAt: "" });
   if (el) el.value = "";
   Store.save();
   renderIdeas();
   toast("灵感已记下");
 }
 
-/* 改主题：小弹窗输入 */
+/* 改标签：小弹窗输入（可选，不影响归档） */
 function editIdeaTopic(id) {
   const it = ideaArr().find(x => x.id === id);
   if (!it) return;
-  openModal("给灵感归个类",
-    '<div style="margin-bottom:12px"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">主题标签</label>' +
-    '<input id="ideaTopicInput" class="input" value="' + esc(it.topic || "") + '" placeholder="如：技术 / 学习 / 生活" /></div>' +
-    '<div style="font-size:11px;color:var(--muted)">归纳灵区会按这个主题把灵感放在一起。</div>', () => {
+  openModal("给灵感加个标签",
+    '<div style="margin-bottom:12px"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">标签（可空）</label>' +
+    '<input id="ideaTopicInput" class="input" value="' + esc(it.topic === "未分类" ? "" : (it.topic || "")) + '" placeholder="如：技术 / 学习 / 生活" /></div>', () => {
       const inp = $("#ideaTopicInput");
       if (inp) { inp.focus(); inp.select(); }
       const save = document.createElement("button");
@@ -945,10 +940,33 @@ function editIdeaTopic(id) {
         Store.save();
         closeModal();
         renderIdeas();
-        toast("主题已更新");
+        toast("标签已更新");
       });
       $("#modalBody").appendChild(save);
     });
+}
+
+/* 归档：从记录页移入归档区，不真删 */
+function archiveIdea(id) {
+  const it = ideaArr().find(x => x.id === id);
+  if (!it || it.archived) return;
+  it.archived = true;
+  it.archivedAt = todayStr();
+  Store.save();
+  renderIdeas();
+  toast("已归档，可在归档区回看");
+}
+
+/* 还原：从归档区放回记录页 */
+function restoreIdea(id) {
+  const it = ideaArr().find(x => x.id === id);
+  if (!it || !it.archived) return;
+  it.archived = false;
+  it.archivedAt = "";
+  Store.save();
+  renderIdeaArchive();
+  renderIdeas();
+  toast("已还原到灵感区");
 }
 
 function deleteIdea(id) {
@@ -961,38 +979,40 @@ function deleteIdea(id) {
   arr.splice(i, 1);
   Store.save();
   renderIdeas();
+  renderIdeaArchive();
   toast("已删除，可在回收站恢复");
 }
 
-/* 归纳视图：按 topic 聚合 */
-function renderIdeaSummary() {
-  const box = $("#ideaSummaryBox");
+/* 归档区：显示已归档的，可还原/删除 */
+function renderIdeaArchive() {
+  const box = $("#ideaArchiveBox");
   if (!box) return;
-  const all = ideaArr();
-  const note = $(".sum-note", box);
-  if (!all.length) {
-    box.innerHTML = '<div class="sum-note">还没有灵感可归纳。先去灵感区记几条。</div>';
+  const done = ideaArr().filter(x => x.archived)
+    .sort((a, b) => String(b.archivedAt || "").localeCompare(String(a.archivedAt || "")));
+  if (!done.length) {
+    box.innerHTML = '<div class="idea-empty">归档区是空的。用过的灵感归档后会收在这里。</div>';
     return;
   }
-  const groups = {};
-  all.forEach(x => {
-    const k = String(x.topic || "未分类").trim() || "未分类";
-    (groups[k] = groups[k] || []).push(x);
-  });
-  const keys = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
-  box.innerHTML = '<div class="sum-note">已把 ' + all.length + ' 条灵感归到 ' + keys.length + ' 个主题</div>' +
-    keys.map(k => '<div class="sum-group"><div class="gh">' + ideaSvg(ideaTopicIcon(k)) +
-      '<span class="nm">' + esc(k) + '</span><span class="n">' + groups[k].length + ' 条</span></div>' +
-      groups[k].map(x => '<div class="li">' + esc(x.text) + '</div>').join("") + '</div>').join("");
+  box.innerHTML = '<div class="sum-note">已归档 ' + done.length + ' 条 · 可还原或删除</div>' +
+    done.map(x => '<div class="idea-item archived" data-id="' + esc(x.id) + '">' +
+      '<span class="mark"></span>' +
+      '<div class="body"><div class="tx">' + esc(x.text) + '</div>' +
+      '<div class="meta"><span>' + esc(fmtIdeaTime(x.archivedAt || x.createdAt)) + ' 归档</span>' +
+      (x.topic && x.topic !== "未分类" ? '<span class="idea-tag">' + esc(x.topic) + '</span>' : '') +
+      '</div></div>' +
+      '<div class="ops">' +
+      '<button class="idea-mini go" data-act="restore" type="button" title="还原">' + ideaSvg(IDEA_ICON.restore) + '还原</button>' +
+      '<button class="idea-mini" data-act="del" type="button" title="删除">' + ideaSvg(IDEA_ICON.trash) + '</button>' +
+      '</div></div>').join("");
 }
 
 function switchIdeaPane(which) {
-  const rec = $("#ideaRecord"), sum = $("#ideaSummary");
-  if (!rec || !sum) return;
-  const toSummary = which === "summary";
-  rec.classList.toggle("hidden", toSummary);
-  sum.classList.toggle("hidden", !toSummary);
-  if (toSummary) renderIdeaSummary();
+  const rec = $("#ideaRecord"), arc = $("#ideaArchive");
+  if (!rec || !arc) return;
+  const toArchive = which === "archive";
+  rec.classList.toggle("hidden", toArchive);
+  arc.classList.toggle("hidden", !toArchive);
+  if (toArchive) renderIdeaArchive();
   else renderIdeas();
 }
 
@@ -1001,8 +1021,8 @@ function bindIdeaUI() {
   if (add) add.addEventListener("click", addIdea);
   const inp = $("#ideaInput");
   if (inp) inp.addEventListener("keydown", e => { if (e.key === "Enter") addIdea(); });
-  const go = $("#ideaGoSummary");
-  if (go) go.addEventListener("click", () => switchIdeaPane("summary"));
+  const go = $("#ideaGoArchive");
+  if (go) go.addEventListener("click", () => switchIdeaPane("archive"));
   const back = $("#ideaBack");
   if (back) back.addEventListener("click", () => switchIdeaPane("record"));
   const list = $("#ideaList");
@@ -1012,9 +1032,21 @@ function bindIdeaUI() {
     const id = item.dataset.id;
     const act = e.target.closest("[data-act]");
     if (!act) return;
-    if (act.dataset.act === "topic") editIdeaTopic(id);
-    else if (act.dataset.act === "del") deleteIdea(id);
-    else if (act.dataset.act === "summary") switchIdeaPane("summary");
+    const a = act.dataset.act;
+    if (a === "topic") editIdeaTopic(id);
+    else if (a === "archive") archiveIdea(id);
+    else if (a === "del") deleteIdea(id);
+    else if (a === "archive-view") switchIdeaPane("archive");
+  });
+  const arc = $("#ideaArchiveBox");
+  if (arc) arc.addEventListener("click", e => {
+    const item = e.target.closest(".idea-item");
+    if (!item) return;
+    const act = e.target.closest("[data-act]");
+    if (!act) return;
+    const a = act.dataset.act;
+    if (a === "restore") restoreIdea(item.dataset.id);
+    else if (a === "del") deleteIdea(item.dataset.id);
   });
 }
 

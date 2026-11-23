@@ -122,8 +122,8 @@ const DEFAULT_DATA = {
   /* 好物欲望清单：{ id, name, price, note, wantedAt, got }
      price/note 可选；got=true 表示已入手（列表划线沉底） */
   wishes: [],
-  /* 灵感区：{ id, text, topic, createdAt }
-     topic 手填主题标签（如 技术/学习/生活），归纳页按 topic 聚合 */
+  /* 灵感区：{ id, text, topic, createdAt, archived, archivedAt }
+     记下的灵感；用过后归档收起（从列表消失、可在归档区回看/还原） */
   ideas: [],
   /* 周复盘的人工总结：{ "2026-W45": "这周的一句话" } */
   reviews: {},
@@ -145,7 +145,7 @@ function fillItemDefaults(d) {
   d.wishes = (Array.isArray(d.wishes) ? d.wishes : []).map(w =>
     Object.assign({ price: "", note: "", wantedAt: todayStr(), got: false }, w));
   d.ideas = (Array.isArray(d.ideas) ? d.ideas : []).map(i =>
-    Object.assign({ topic: "未分类", createdAt: todayStr() }, i));
+    Object.assign({ topic: "未分类", createdAt: todayStr(), archived: false, archivedAt: "" }, i));
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   /* 回收站：只保留结构正确的记录，丢掉脏数据 */
   d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);

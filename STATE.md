@@ -11,7 +11,7 @@
 | 本地工作树 | wb-v11 + 本轮优化（安全清理、文档、同步/转义）未提交 |
 | 线上地址 | https://hui0624.github.io/gerengongjuxiang/ |
 | 本地预览 | `node server.js` → http://localhost:7788 |
-| `sw.js` VERSION | `wb-v11-sec10`（灵感区版；发布新改动前必须往上加） |
+| `sw.js` VERSION | `wb-v11-sec11`（灵感区改为归档版；发布新改动前必须往上加） |
 | 数据同步 | GitHub 私有 Gist（只传数据 `wb_data_v1`，不传代码） |
 | 代码同步 | GitHub REST API 推 `main`（git 协议在本沙箱被 schannel 拦，不可用） |
 
@@ -37,6 +37,7 @@
 - **11-23 个人中枢 v20 做了又退回**：v20（个人中枢 8 模块）先上线 `fbef5d0`，用户要求退回，已用新提交 `fce92f9` 回退到 sec7（保留 git 历史）。v20 文件备份在 `.workbuddy/backup-20261116/v20-backup/`，详情见 11-23 工作日志
 - **11-23 手机侧栏居中修复（sec9）**：用户截图反馈侧栏按钮图标文字偏左。根因：760 断点给 `.nav-item` 设了 `align-items:flex-start`（为守"文字左对齐"规范，但窄栏按钮竖排时必须居中）。改为 `align-items:center`+`text-align:center`；560 断点同步。顺带发现侧栏占宽后首页 `home-cols` 两列把待办文字挤成竖排——因为基础定义 `.home-cols{grid-template-columns:repeat(2)}` 在文件后面覆盖了断点内的单列规则（同源特异性后者覆盖），把单列修正**追加到文件末尾**才生效，待办/课程改单列、`.ht-text` nowrap+省略号。另外把 `.nav-item:focus` 从我加的按钮光圈里移除（导航已有 active 高亮，再加光圈显杂乱）。截图验证侧栏居中、待办文字完整、无光圈框。仅改 style.css + sw.js + STATE.md
 - **11-23 灵感区（sec10）**：「更多」菜单加第 4 项「灵感区」(灯泡线性图标，inMore 高亮)。数据层 `ideas=[{id,text,topic,createdAt}]` 三处同改 + 回收站 idea 映射。独立 `#view-ideas`：快速记录(回车即存)、灵感列表(点主题标签改 topic)、「归纳」按钮切到归纳灵区(按 topic 聚合分组，主题名匹配猜图标)。`renderIdeas/addIdea/editIdeaTopic/deleteIdea/renderIdeaSummary/switchIdeaPane/bindIdeaUI`，switchView+renderAll+init 接入。视觉五规范(局部 --if1..5 五档字号)。先出独立预览 `preview-idea.html`(未推)。用户确认按手填主题聚合、不搞 AI 分类。数据单测 6 PASS，无头浏览器灵感视图渲染正常无 JS 错误
+- **11-23 灵感区改为归档（sec11）**：用户指出方向做错——要的是「归档」不是「按主题分类归纳」。ideas 加 `archived`/`archivedAt` 字段（fillItemDefaults 兼容旧数据）。记录页只显示未归档项，每条按钮从「归纳」换成「归档」；点归档移入归档区（不真删），归档区可「还原」或「删除」（删除仍进回收站）。删掉按 topic 聚合的归纳视图和相关图标，主题标签保留为可选备注。index.html 的 ID/文案全改（ideaGoArchive/ideaArchive/ideaArchiveBox），app.js 加 archiveIdea/restoreIdea/renderIdeaArchive，switchIdeaPane 改 archive 语义。单测归档分流 5 项过，浏览器渲染无旧「归纳」残留、无 JS 错误
 
 ## 未完成 / 待用户
 

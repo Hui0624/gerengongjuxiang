@@ -1945,3 +1945,7 @@ body.quad-dragging { user-select: none; }
   .idea-item{flex-wrap:wrap}
   .idea-item .ops{width:100%;justify-content:flex-end}
 }
+
+/* 归档区的灵感：灰显表示已收起 */
+.idea-item.archived .tx { color: var(--muted); }
+.idea-item.archived .mark { background: var(--border); }
