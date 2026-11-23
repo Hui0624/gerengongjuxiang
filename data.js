@@ -122,17 +122,6 @@ const DEFAULT_DATA = {
   /* 好物欲望清单：{ id, name, price, note, wantedAt, got }
      price/note 可选；got=true 表示已入手（列表划线沉底） */
   wishes: [],
-  /* 个人中枢：8 个子模块，统一挂在 personal 对象下 */
-  personal: {
-    academics: [],  // 学业台账 {id,term,gpa,credits,secondClass,pe,note}
-    affairs: [],    // 校园事务 {id,title,due,status,link,note}
-    resources: [],  // 资料库 {id,title,kind,tags[],link,note,createdAt}
-    experiences: [],// 经历积累 {id,name,date,role,result,link,note}
-    weights: [],    // 体重记录 {id,date,weight,note}
-    flows: [],      // 任务流程 {id,name,steps[],scene,review}
-    clothes: [],    // 衣物库 {id,name,category,color,season,price,img,wears}
-    outfits: []     // 搭配记录 {id,date,scene,itemIds[],photo,note}
-  },
   /* 周复盘的人工总结：{ "2026-W45": "这周的一句话" } */
   reviews: {},
   /* 回收站：删除的数据不真删，先挪到这里，30 天内可恢复
@@ -152,17 +141,6 @@ function fillItemDefaults(d) {
   d.projects = Array.isArray(d.projects) ? d.projects : [];
   d.wishes = (Array.isArray(d.wishes) ? d.wishes : []).map(w =>
     Object.assign({ price: "", note: "", wantedAt: todayStr(), got: false }, w));
-  /* 个人中枢：确保对象与 8 个子数组都在（旧数据升级不炸） */
-  const P = (d.personal && typeof d.personal === "object") ? d.personal : {};
-  const pa = k => Array.isArray(P[k]) ? P[k] : [];
-  d.personal = {
-    academics: pa("academics"), affairs: pa("affairs"),
-    resources: pa("resources").map(r => Object.assign({ tags: [], kind: "网页", note: "", createdAt: todayStr() }, r)),
-    experiences: pa("experiences"), weights: pa("weights"),
-    flows: pa("flows").map(f => Object.assign({ steps: [], scene: "", review: "" }, f)),
-    clothes: pa("clothes").map(c => Object.assign({ price: "", img: "", wears: 0 }, c)),
-    outfits: pa("outfits").map(o => Object.assign({ itemIds: [], photo: "", note: "" }, o))
-  };
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   /* 回收站：只保留结构正确的记录，丢掉脏数据 */
   d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);
@@ -195,7 +173,6 @@ const Store = {
       logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
       projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
       wishes: parsed && Array.isArray(parsed.wishes) ? parsed.wishes : [],
-      personal: (parsed && parsed.personal && typeof parsed.personal === "object") ? parsed.personal : JSON.parse(JSON.stringify(DEFAULT_DATA.personal)),
       reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {},
       trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : []
     };
@@ -231,21 +208,14 @@ const Trash = {
   KEEP_DAYS: 30,     // 保留 30 天
   MAX: 300,          // 最多存 300 条，防止无限膨胀
 
-  /* kind → 数据数组的字段名（personal.xxx 表示 personal 对象的子数组） */
+  /* kind → 数据数组的字段名 */
   arrKey(kind) {
-    const map = { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs", wish: "wishes" };
-    if (map[kind]) return map[kind];
-    if (kind && kind.indexOf("pa-") === 0) return "personal." + kind.slice(3);
-    return "";
+    return { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs", wish: "wishes" }[kind] || "";
   },
 
   /* 可读名字，回收站里显示 */
   kindName(kind) {
-    const map = { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录", wish: "好物" };
-    if (map[kind]) return map[kind];
-    const pa = { academics: "学业", affairs: "事务", resources: "资料", experiences: "经历", weights: "体重", flows: "流程", clothes: "衣物", outfits: "搭配" };
-    if (kind && kind.indexOf("pa-") === 0) return pa[kind.slice(3)] || "个人";
-    return "条目";
+    return { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录", wish: "好物" }[kind] || "条目";
   },
 
   /* 移入回收站并返回被删的对象（方便调用方继续 filter 原数组） */
@@ -290,20 +260,11 @@ const Trash = {
     if (!rec) return false;
     const key = this.arrKey(rec.kind);
     if (!key) return false;
+    if (!Array.isArray(Store.data[key])) Store.data[key] = [];
     const item = JSON.parse(JSON.stringify(rec.item));
-    /* personal.xxx → 操作 personal 对象下的子数组 */
-    if (key.indexOf("personal.") === 0) {
-      const sub = key.slice(9);
-      if (!Store.data.personal || typeof Store.data.personal !== "object") Store.data.personal = {};
-      if (!Array.isArray(Store.data.personal[sub])) Store.data.personal[sub] = [];
-      const arr = Store.data.personal[sub];
-      if (arr.some(x => x && x.id === item.id)) item.id = uid();
-      arr.push(item);
-    } else {
-      if (!Array.isArray(Store.data[key])) Store.data[key] = [];
-      if (Store.data[key].some(x => x && x.id === item.id)) item.id = uid();
-      Store.data[key].push(item);
-    }
+    /* 同 id 已存在（可能后来手动又建了一个），换新 id 避免冲突 */
+    if (Store.data[key].some(x => x && x.id === item.id)) item.id = uid();
+    Store.data[key].push(item);
     Store.data.trash = (Store.data.trash || []).filter(x => x.id !== recId);
     return true;
   },
@@ -390,9 +351,7 @@ const Snapshot = {
   summary(data) {
     if (!data) return "";
     const n = k => (Array.isArray(data[k]) ? data[k].length : 0);
-    const pn = data.personal && typeof data.personal === "object"
-      ? Object.keys(data.personal).reduce((s, k) => s + (Array.isArray(data.personal[k]) ? data.personal[k].length : 0), 0) : 0;
-    return `待办 ${n("todos")} · 记录 ${n("logs")} · 技能 ${n("skills")} · 打卡 ${n("habits")} · 倒计时 ${n("countdowns")} · 好物 ${n("wishes")} · 个人 ${pn}`;
+    return `待办 ${n("todos")} · 记录 ${n("logs")} · 技能 ${n("skills")} · 打卡 ${n("habits")} · 倒计时 ${n("countdowns")} · 好物 ${n("wishes")}`;
   }
 };
 

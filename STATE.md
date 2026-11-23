@@ -11,13 +11,13 @@
 | 本地工作树 | wb-v11 + 本轮优化（安全清理、文档、同步/转义）未提交 |
 | 线上地址 | https://hui0624.github.io/gerengongjuxiang/ |
 | 本地预览 | `node server.js` → http://localhost:7788 |
-| `sw.js` VERSION | `wb-v20.00`（个人中枢大版本：8 子模块；发布新改动前必须往上加） |
+| `sw.js` VERSION | `wb-v11-sec7`（首页瘦身 + 导航做减法版；发布新改动前必须往上加） |
 | 数据同步 | GitHub 私有 Gist（只传数据 `wb_data_v1`，不传代码） |
 | 代码同步 | GitHub REST API 推 `main`（git 协议在本沙箱被 schannel 拦，不可用） |
 
 ## 功能清单（wb-v11 实际有的）
 
-导航 6 项：首页（行动中枢+待办+课程+打卡）/ 时间线（日+周课表）/ 待办（列表+四象限+好物欲望清单）/ 记录沉淀（语音+AI 提炼+流水+周复盘）/ 个人（中枢：学业台账+校园事务+资料库+经历积累 / 状态：体重趋势+任务流程 / 衣橱：衣物库+搭配记录）/ 更多（弹出菜单：技能进度 / 打卡 / 倒计时）。
+导航 5 项：首页（行动中枢+待办+课程+打卡）/ 时间线（日+周课表）/ 待办（列表+四象限+好物欲望清单）/ 记录沉淀（语音+AI 提炼+流水+周复盘）/ 更多（弹出菜单：技能进度 / 打卡 / 倒计时）。
 数据层还有 `projects` 字段但**无界面**（留的坑）。
 飞书提醒是独立 Cloudflare Worker（cron 每分钟），读 Gist 推飞书，源码在 `飞书提醒/`，设 `off` 可关早晚汇总。
 
@@ -33,7 +33,6 @@
 - **11-20 待办输入区按模式显隐**：用户指出切到「好物欲望清单」时，待办的输入框（"试试：明天下午3点交作业"+更多+添加）还显示、与好物清单无关。给 `.todo-add` 加 id `todoAddBar`，`renderTodo` 里只在列表模式显示它（四象限/好物清单隐藏），`#todoAdv` 非列表模式强制收起；列表模式不碰 adv 的 hidden 以保留「更多」展开状态
 - **11-22 首页瘦身 + 导航做减法**：用户觉得按钮太多。① 首页只留「行动中枢 + 今日待办 + 今日课程 + 今日打卡」，删掉顶部快捷栏(`#homeQuick`)、4 张统计卡(`#homeStats`)、周主题(`#homeWeekTheme`)、技能进度(`#homeSkills`)、最近倒计时(`#homeCountdown`)；`renderHome` 去掉 `elStats` 的 early return 和对应渲染，只保留待办/课程/打卡/行动中枢。② 导航 7→5：首页/时间线/待办/记录 + 「更多」按钮(`data-more`)，技能/打卡/倒计时收进「更多」弹出菜单(`openMoreMenu`/`MORE_ITEMS`)，切到这三页时高亮「更多」。三个页面与数据都没删，只是入口收起；`?view=skills` 仍可用
 - **11-22 飞书提醒目录删除**：用户在 GitHub 网页端自行删除了 `飞书提醒/` 目录（main HEAD `8057ab7`）。本地该目录仍在（未同步删除），但主程序从不引用它，不影响运行
-- **11-23 个人中枢大版本 wb-v20.00**：导航加第 5 项「个人」（6 项），独立 `#view-personal` + `#personalRoot`（JS 全动态渲染）。数据层新增 `personal` 对象（8 子数组：academics/affairs/resources/experiences/weights/flows/clothes/outfits），三处同改 + 回收站 `pa-*` 嵌套路径恢复。交互配置驱动 `PV_MODULES`（字段/渲染类型），`openPvForm`/`savePvForm`/`deletePv` 增删改，`bindPersonalUI` 事件委托，体重纯 SVG 折线。视觉五规范：单主色/线性 SVG 图标/无嵌套卡/5 档字号(--pf1..5)/左对齐。`renderPersonal` 接入 switchView+renderAll。独立预览文件 `preview-personal.html` 留在本地、不推 GitHub
 
 ## 未完成 / 待用户
 
