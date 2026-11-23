@@ -705,6 +705,9 @@ function setTlMode(mode) {
   $$(".seg-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === tlMode));
   $("#tlScroll").classList.toggle("hidden", tlMode !== "day");
   $("#weekPane").classList.toggle("hidden", tlMode !== "week");
+  /* 整周课表是全局视图，顶部「下一项」卡片只在「今日」模式显示 */
+  const nc = $("#nextCard");
+  if (nc) nc.classList.toggle("hidden", tlMode === "week");
   $("#tlTitle").textContent = tlMode === "day" ? "今日时间线" : "本周课表";
   $("#tlHint").textContent = tlMode === "day"
     ? "课程与待办混排 · 红线为当前时刻"
@@ -1070,9 +1073,9 @@ function openQuadMenu(anchor, id) {
 /* ---------- 「更多」导航菜单：技能 / 打卡 / 倒计时 ---------- */
 let moreMenu = null;
 const MORE_ITEMS = [
-  { view: "skills",    name: "技能",  icon: "📊", desc: "技能进度与训练" },
-  { view: "checkin",   name: "打卡",  icon: "✅", desc: "习惯打卡与统计" },
-  { view: "countdown", name: "倒计时", icon: "⏳", desc: "重要日期提醒" }
+  { view: "skills",    name: "技能",  icon: '<path d="M4 19V9.5M9.3 19V5M14.6 19v-7.5M20 19v-4.5"/><path d="M3 21h18"/>', desc: "技能进度与训练" },
+  { view: "checkin",   name: "打卡",  icon: '<path d="M12 21c3.6 0 6.5-2.7 6.5-6.2 0-2.4-1.3-4.2-3-6.1-1.3-1.5-2.6-3.1-3-5.2-.6 1.6-1.7 2.7-2.9 4C8 9.2 6.4 11 6.4 13.5 6.4 17.8 8.9 21 12 21z"/>', desc: "习惯打卡与统计" },
+  { view: "countdown", name: "倒计时", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', desc: "重要日期提醒" }
 ];
 function onMoreMenuOutside(e) {
   if (!moreMenu) return;
@@ -1088,7 +1091,7 @@ function openMoreMenu(anchor) {
   menu.className = "more-menu";
   menu.innerHTML = '<div class="mm-title">更多功能</div>' + MORE_ITEMS.map(it =>
     '<button type="button" class="mm-opt" data-view="' + it.view + '">' +
-      '<span class="mm-ico">' + it.icon + '</span>' +
+      '<span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + it.icon + '</svg></span>' +
       '<span class="mm-body"><span class="mm-name">' + it.name + '</span>' +
       '<span class="mm-desc">' + it.desc + '</span></span>' +
     '</button>').join("");
@@ -3129,7 +3132,11 @@ function toggleWkFull() {
   if (!pane) return;
   const on = pane.classList.toggle("compact");
   const btn = $("#wkFull");
-  if (btn) { btn.classList.toggle("on", on); btn.textContent = on ? "⤡ 退出" : "⤢ 整周"; }
+  if (btn) {
+    btn.classList.toggle("on", on);
+    const lb = btn.querySelector(".wk-full-label");
+    if (lb) lb.textContent = on ? "退出" : "整周";
+  }
   if (on) { if (pane.requestFullscreen) pane.requestFullscreen().catch(() => {}); }
   else { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
 }
@@ -4317,7 +4324,11 @@ function init() {
     if (!document.fullscreenElement && pane && pane.classList.contains("compact")) {
       pane.classList.remove("compact");
       const b = $("#wkFull");
-      if (b) { b.classList.remove("on"); b.textContent = "⤢ 整周"; }
+      if (b) {
+        b.classList.remove("on");
+        const lb = b.querySelector(".wk-full-label");
+        if (lb) lb.textContent = "整周";
+      }
     }
   });
 

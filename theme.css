@@ -8,7 +8,7 @@
 :root,
 :root[data-theme="dark"] {
   --scheme: dark;
-  --app-bg: radial-gradient(1200px 620px at 82% -12%, #172033 0%, #0e1116 56%);
+  --app-bg: #0e1116;
   --panel: #151a22;
   --panel-2: #1b222c;
   --border: #262e3a;
@@ -39,25 +39,25 @@
   --grid-line-2: rgba(38,46,58,.45);
   --topbar-bg: rgba(16,20,27,.85);
   --nav-bg: rgba(16,20,27,.45);
-  --nav-active-bg: linear-gradient(90deg, rgba(79,140,255,.18), rgba(79,140,255,.04));
+  --nav-active-bg: rgba(79,140,255,.1);
   --overlay: rgba(5,8,12,.68);
   --shadow: 0 6px 22px rgba(0,0,0,.28);
   --shadow-lg: 0 18px 50px rgba(0,0,0,.5);
 
-  --hero-bg: linear-gradient(120deg, rgba(79,140,255,.16), rgba(167,139,250,.07) 62%, transparent);
-  --course-bg: linear-gradient(180deg, rgba(79,140,255,.24), rgba(79,140,255,.13));
+  --hero-bg: rgba(79,140,255,.07);
+  --course-bg: rgba(79,140,255,.15);
   --course-border: rgba(79,140,255,.4);
   --course-text: #bcd3ff;
-  --todo-bg: linear-gradient(180deg, rgba(255,159,67,.22), rgba(255,159,67,.12));
+  --todo-bg: rgba(255,159,67,.14);
   --todo-bg-solid: #2b2116;
   --todo-border: rgba(255,159,67,.4);
   --todo-text: #ffd7a8;
 
   --check-border: #3b4657;
   --on-accent: #08301f;
-  --accent-grad: linear-gradient(180deg, #5b95ff, #3f7ef0);
+  --accent-grad: var(--blue);
   --accent-line: #4a86f5;
-  --fill-grad: linear-gradient(90deg, #2fbf85, var(--green));
+  --fill-grad: var(--green);
   --scroll-thumb: #2c3543;
   --scroll-thumb-hover: #3a4658;
   --bili: #ff8fab;
@@ -71,7 +71,7 @@
 /* ---------------- 简洁白（薄荷绿） ---------------- */
 :root[data-theme="light"] {
   --scheme: light;
-  --app-bg: radial-gradient(1100px 560px at 84% -14%, #e3f3ec 0%, #eef6f2 55%, #f4f9f6 100%);
+  --app-bg: #f4f8f6;
   --panel: #ffffff;
   --panel-2: #eef4f0;
   --border: #e0eae4;
@@ -102,25 +102,25 @@
   --grid-line-2: #f5f9f6;
   --topbar-bg: rgba(255,255,255,.82);
   --nav-bg: rgba(255,255,255,.58);
-  --nav-active-bg: linear-gradient(90deg, rgba(22,160,106,.14), rgba(22,160,106,.02));
+  --nav-active-bg: rgba(22,160,106,.1);
   --overlay: rgba(22,36,30,.3);
   --shadow: 0 1px 3px rgba(22,36,30,.05), 0 10px 26px -18px rgba(22,36,30,.22);
   --shadow-lg: 0 20px 48px -20px rgba(22,36,30,.3);
 
-  --hero-bg: linear-gradient(120deg, #e4f4ec, #eaf2ff 62%, #ffffff);
-  --course-bg: linear-gradient(180deg, #e6f4ec, #dcf0e6);
+  --hero-bg: var(--panel-2);
+  --course-bg: #e6f4ec;
   --course-border: #bfe3d2;
   --course-text: #0f7a52;
-  --todo-bg: linear-gradient(180deg, #fff3e6, #ffe8cf);
+  --todo-bg: #fff3e6;
   --todo-bg-solid: #fff6ec;
   --todo-border: #fbd5a8;
   --todo-text: #a35a10;
 
   --check-border: #cdd9d2;
   --on-accent: #ffffff;
-  --accent-grad: linear-gradient(180deg, #1ebd80, #14a06a);
+  --accent-grad: var(--green);
   --accent-line: #16a06a;
-  --fill-grad: linear-gradient(90deg, #2ec48f, #16a06a);
+  --fill-grad: var(--green);
   --radius: 18px;
   --radius-sm: 12px;
   --scroll-thumb: #d3ddd7;
@@ -137,10 +137,8 @@
 :root[data-theme="ink"] {
   --scheme: light;
   --font-head: "Songti SC", "STSong", "SimSun", "Noto Serif SC", Georgia, serif;
-  --app-bg:
-    radial-gradient(900px 480px at 88% -8%, #fbf6ea 0%, rgba(251,246,234,0) 60%),
-    repeating-linear-gradient(48deg, rgba(158,138,102,.013) 0 2px, transparent 2px 9px),
-    linear-gradient(158deg, #f5eddd 0%, #ece1cc 100%);
+  --app-bg: #f5eddd;  /* 国风：纯色底 */
+
   --panel: rgba(255,252,244,.88);
   --panel-2: #f4ebda;
   --border: #dbcdb4;
@@ -171,25 +169,25 @@
   --grid-line-2: rgba(178,160,128,.24);
   --topbar-bg: rgba(250,244,232,.9);
   --nav-bg: rgba(248,241,228,.62);
-  --nav-active-bg: linear-gradient(90deg, rgba(184,67,47,.1), rgba(184,67,47,.02));
+  --nav-active-bg: rgba(184,67,47,.08);
   --overlay: rgba(43,36,28,.42);
   --shadow: 0 2px 12px rgba(120,100,70,.12);
   --shadow-lg: 0 18px 44px rgba(90,74,50,.24);
 
-  --hero-bg: linear-gradient(120deg, rgba(63,96,118,.12), rgba(184,67,47,.06) 62%, transparent);
-  --course-bg: linear-gradient(180deg, rgba(63,96,118,.2), rgba(63,96,118,.1));
+  --hero-bg: rgba(63,96,118,.08);
+  --course-bg: rgba(63,96,118,.14);
   --course-border: rgba(63,96,118,.34);
   --course-text: #2f4b5e;
-  --todo-bg: linear-gradient(180deg, rgba(176,106,44,.16), rgba(176,106,44,.08));
+  --todo-bg: rgba(176,106,44,.12);
   --todo-bg-solid: #f7e7d3;
   --todo-border: rgba(176,106,44,.32);
   --todo-text: #8a4f18;
 
   --check-border: #c3b394;
   --on-accent: #fdf8ee;
-  --accent-grad: linear-gradient(180deg, #c05a44, #a83c28);
+  --accent-grad: #b84830;
   --accent-line: #a83c28;
-  --fill-grad: linear-gradient(90deg, #7d9c74, #4a7a52);
+  --fill-grad: var(--green);
   --scroll-thumb: #d6c7ab;
   --scroll-thumb-hover: #c3b191;
   --bili: #a8475f;
@@ -258,25 +256,25 @@
   --grid-line-2: rgba(255,255,255,.07);
   --topbar-bg: rgba(12,16,22,.55);
   --nav-bg: rgba(12,16,22,.32);
-  --nav-active-bg: linear-gradient(90deg, rgba(122,171,255,.24), rgba(122,171,255,.06));
+  --nav-active-bg: rgba(122,171,255,.14);
   --overlay: rgba(6,9,14,.55);
   --shadow: 0 6px 24px rgba(0,0,0,.3);
   --shadow-lg: 0 18px 50px rgba(0,0,0,.55);
 
-  --hero-bg: linear-gradient(120deg, rgba(122,171,255,.24), rgba(189,166,255,.12) 62%, rgba(255,255,255,.04));
-  --course-bg: linear-gradient(180deg, rgba(122,171,255,.3), rgba(122,171,255,.16));
+  --hero-bg: rgba(122,171,255,.14);
+  --course-bg: rgba(122,171,255,.2);
   --course-border: rgba(122,171,255,.42);
   --course-text: #dce9ff;
-  --todo-bg: linear-gradient(180deg, rgba(255,176,102,.28), rgba(255,176,102,.14));
+  --todo-bg: rgba(255,176,102,.18);
   --todo-bg-solid: rgba(48,35,22,.85);
   --todo-border: rgba(255,176,102,.4);
   --todo-text: #ffe3c2;
 
   --check-border: rgba(255,255,255,.4);
   --on-accent: #07281b;
-  --accent-grad: linear-gradient(180deg, #6fa5ff, #4f8cff);
+  --accent-grad: var(--blue);
   --accent-line: rgba(255,255,255,.2);
-  --fill-grad: linear-gradient(90deg, #3fd39b, #6ff0c0);
+  --fill-grad: var(--green);
   --scroll-thumb: rgba(255,255,255,.24);
   --scroll-thumb-hover: rgba(255,255,255,.4);
   --bili: #ffa8c4;

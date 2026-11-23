@@ -11,7 +11,7 @@
 | 本地工作树 | wb-v11 + 本轮优化（安全清理、文档、同步/转义）未提交 |
 | 线上地址 | https://hui0624.github.io/gerengongjuxiang/ |
 | 本地预览 | `node server.js` → http://localhost:7788 |
-| `sw.js` VERSION | `wb-v11-sec7`（首页瘦身 + 导航做减法版；发布新改动前必须往上加） |
+| `sw.js` VERSION | `wb-v11-sec8`（视觉规范优化版；发布新改动前必须往上加） |
 | 数据同步 | GitHub 私有 Gist（只传数据 `wb_data_v1`，不传代码） |
 | 代码同步 | GitHub REST API 推 `main`（git 协议在本沙箱被 schannel 拦，不可用） |
 
@@ -33,6 +33,8 @@
 - **11-20 待办输入区按模式显隐**：用户指出切到「好物欲望清单」时，待办的输入框（"试试：明天下午3点交作业"+更多+添加）还显示、与好物清单无关。给 `.todo-add` 加 id `todoAddBar`，`renderTodo` 里只在列表模式显示它（四象限/好物清单隐藏），`#todoAdv` 非列表模式强制收起；列表模式不碰 adv 的 hidden 以保留「更多」展开状态
 - **11-22 首页瘦身 + 导航做减法**：用户觉得按钮太多。① 首页只留「行动中枢 + 今日待办 + 今日课程 + 今日打卡」，删掉顶部快捷栏(`#homeQuick`)、4 张统计卡(`#homeStats`)、周主题(`#homeWeekTheme`)、技能进度(`#homeSkills`)、最近倒计时(`#homeCountdown`)；`renderHome` 去掉 `elStats` 的 early return 和对应渲染，只保留待办/课程/打卡/行动中枢。② 导航 7→5：首页/时间线/待办/记录 + 「更多」按钮(`data-more`)，技能/打卡/倒计时收进「更多」弹出菜单(`openMoreMenu`/`MORE_ITEMS`)，切到这三页时高亮「更多」。三个页面与数据都没删，只是入口收起；`?view=skills` 仍可用
 - **11-22 飞书提醒目录删除**：用户在 GitHub 网页端自行删除了 `飞书提醒/` 目录（main HEAD `8057ab7`）。本地该目录仍在（未同步删除），但主程序从不引用它，不影响运行
+- **11-23 视觉规范优化（sec8）**：用户给五条规范，先出独立预览 `preview-optimize.html`（未推）。正式接入：① 去渐变——theme.css 四套主题(app-bg/nav-active-bg/hero-bg/course-bg/todo-bg/accent-grad/fill-grad)全部拍平纯色，style.css 装饰渐变(stat-card/顶饰线等)拍平；保留 2 处功能性渐变(conic 环形进度、tc-preview 双色预览)和照片主题文字遮罩。② 按钮点击/聚焦边缘留光——全局 `:focus`/`:focus-visible` 加柔光圈(box-shadow 0 0 0 2px panel + 4px green-line + 12px green-soft)。③ 整周课表隐藏「下一项」——`setTlMode` 里 `nextCard` 按 week 模式 toggle hidden。④ 手机端底部导航改左侧竖排窄栏(760px 断点 layout 恢复 row、sidenav 66px 竖排；560px 收窄到 58px)。⑤ 图标线性化——MORE_ITEMS emoji 换线性 SVG、时段/整周按钮 emoji 换 SVG(整周按钮文字包 `.wk-full-label` span，切换时只改 span 不覆盖 SVG)。注意：用户实际主题是 localStorage 记住的 dark，两套主题都已去渐变。独立预览文件不推 GitHub
+- **11-23 个人中枢 v20 做了又退回**：v20（个人中枢 8 模块）先上线 `fbef5d0`，用户要求退回，已用新提交 `fce92f9` 回退到 sec7（保留 git 历史）。v20 文件备份在 `.workbuddy/backup-20261116/v20-backup/`，详情见 11-23 工作日志
 
 ## 未完成 / 待用户
 

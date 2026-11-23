@@ -42,3 +42,9 @@
 1. 确认用户已吊销 token / 重置 webhook。
 2. 把本轮改动推到 main（REST API），复核线上文件树无 secrets、无 assets。
 3. 用户要恢复学习通时，从 `wb-v13-xxt` 分支取，并重新解决 `workers.dev` 大陆不可达（买域名挂 CF 或国内云函数）。
+
+## 最新消息（2026-11-23）
+
+- 视觉规范优化 sec8 已上线：四套主题去渐变改纯色、按钮点击/聚焦边缘留光、整周课表隐藏「下一项」、手机端底部导航改左侧竖排窄栏、MORE_ITEMS 与时段/整周按钮 emoji 换线性 SVG。详见 STATE.md 11-23 条。
+- 独立预览 `preview-optimize.html` 留本地、未推 GitHub。
+- 提醒：用户实际主题是 localStorage 记住的 dark（非 HTML 默认 light），两套主题都已去渐变，故无影响。
