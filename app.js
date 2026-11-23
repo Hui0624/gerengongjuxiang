@@ -866,6 +866,159 @@ function renderTodoQuad() {
 }
 
 /* =========================================================
+   灵感区（更多菜单进入）
+   ideas = [{id,text,topic,createdAt}] · 手填主题标签，归纳页按 topic 聚合
+   删除进回收站可恢复；五规范：单主色/线性图标/无嵌套卡/5档字号/左对齐
+   ========================================================= */
+const IDEA_ICON = {
+  cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  book:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  life:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/>',
+  bulb:'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>'
+};
+const ideaSvg = (p) => '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
+
+function ideaArr() {
+  if (!Array.isArray(Store.data.ideas)) Store.data.ideas = [];
+  return Store.data.ideas;
+}
+
+/* 按主题 texts 猜一个图标（纯展示，不影响数据） */
+function ideaTopicIcon(topic) {
+  const s = String(topic || "");
+  if (/技术|调试|代码|程序|硬件|嵌入|电子|机器人|i2c|esp|stm/i.test(s)) return IDEA_ICON.cpu;
+  if (/学习|考研|英语|课程|阅读|考试/i.test(s)) return IDEA_ICON.book;
+  if (/生活|杂事|日常|购物|穿搭|身体/i.test(s)) return IDEA_ICON.life;
+  return IDEA_ICON.bulb;
+}
+
+function renderIdeas() {
+  const box = $("#ideaList"), cnt = $("#ideaCount");
+  if (!box) return;
+  const all = ideaArr().slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  if (cnt) cnt.textContent = all.length + " 条";
+  if (!all.length) {
+    box.innerHTML = '<div class="idea-empty">还没有灵感。上面写一句试试。</div>';
+    return;
+  }
+  box.innerHTML = all.map(x => {
+    const tm = String(x.createdAt || "");
+    const showTime = /\d{4}-\d{2}-\d{2}/.test(tm) ? tm.slice(5).replace("-", "/") : tm;
+    return '<div class="idea-item" data-id="' + esc(x.id) + '">' +
+      '<span class="mark"></span>' +
+      '<div class="body"><div class="tx">' + esc(x.text) + '</div>' +
+      '<div class="meta"><span>' + esc(showTime) + '</span>' +
+      '<span class="idea-tag" data-act="topic" title="点一下改主题">' + esc(x.topic || "未分类") + '</span></div></div>' +
+      '<div class="ops">' +
+      '<button class="idea-mini go" data-act="summary" type="button">' + ideaSvg(IDEA_ICON.bulb) + '归纳</button>' +
+      '<button class="idea-mini" data-act="del" type="button" title="删除">' + ideaSvg('<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/>') + '</button>' +
+      '</div></div>';
+  }).join("");
+}
+
+function addIdea() {
+  const el = $("#ideaInput");
+  const text = el ? el.value.trim() : "";
+  if (!text) { if (el) el.focus(); toast("写一句再记"); return; }
+  ideaArr().unshift({ id: uid(), text, topic: "未分类", createdAt: todayStr() });
+  if (el) el.value = "";
+  Store.save();
+  renderIdeas();
+  toast("灵感已记下");
+}
+
+/* 改主题：小弹窗输入 */
+function editIdeaTopic(id) {
+  const it = ideaArr().find(x => x.id === id);
+  if (!it) return;
+  openModal("给灵感归个类",
+    '<div style="margin-bottom:12px"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">主题标签</label>' +
+    '<input id="ideaTopicInput" class="input" value="' + esc(it.topic || "") + '" placeholder="如：技术 / 学习 / 生活" /></div>' +
+    '<div style="font-size:11px;color:var(--muted)">归纳灵区会按这个主题把灵感放在一起。</div>', () => {
+      const inp = $("#ideaTopicInput");
+      if (inp) { inp.focus(); inp.select(); }
+      const save = document.createElement("button");
+      save.className = "btn primary"; save.textContent = "保存"; save.style.marginTop = "10px";
+      save.addEventListener("click", () => {
+        const v = inp ? inp.value.trim() : "";
+        it.topic = v || "未分类";
+        Store.save();
+        closeModal();
+        renderIdeas();
+        toast("主题已更新");
+      });
+      $("#modalBody").appendChild(save);
+    });
+}
+
+function deleteIdea(id) {
+  const arr = ideaArr();
+  const i = arr.findIndex(x => x.id === id);
+  if (i < 0) return;
+  const label = String(arr[i].text || "灵感").slice(0, 30);
+  if (!confirm("删除这条灵感？30 天内可在回收站恢复。\n" + label)) return;
+  Trash.add("idea", arr[i], label);
+  arr.splice(i, 1);
+  Store.save();
+  renderIdeas();
+  toast("已删除，可在回收站恢复");
+}
+
+/* 归纳视图：按 topic 聚合 */
+function renderIdeaSummary() {
+  const box = $("#ideaSummaryBox");
+  if (!box) return;
+  const all = ideaArr();
+  const note = $(".sum-note", box);
+  if (!all.length) {
+    box.innerHTML = '<div class="sum-note">还没有灵感可归纳。先去灵感区记几条。</div>';
+    return;
+  }
+  const groups = {};
+  all.forEach(x => {
+    const k = String(x.topic || "未分类").trim() || "未分类";
+    (groups[k] = groups[k] || []).push(x);
+  });
+  const keys = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
+  box.innerHTML = '<div class="sum-note">已把 ' + all.length + ' 条灵感归到 ' + keys.length + ' 个主题</div>' +
+    keys.map(k => '<div class="sum-group"><div class="gh">' + ideaSvg(ideaTopicIcon(k)) +
+      '<span class="nm">' + esc(k) + '</span><span class="n">' + groups[k].length + ' 条</span></div>' +
+      groups[k].map(x => '<div class="li">' + esc(x.text) + '</div>').join("") + '</div>').join("");
+}
+
+function switchIdeaPane(which) {
+  const rec = $("#ideaRecord"), sum = $("#ideaSummary");
+  if (!rec || !sum) return;
+  const toSummary = which === "summary";
+  rec.classList.toggle("hidden", toSummary);
+  sum.classList.toggle("hidden", !toSummary);
+  if (toSummary) renderIdeaSummary();
+  else renderIdeas();
+}
+
+function bindIdeaUI() {
+  const add = $("#ideaAdd");
+  if (add) add.addEventListener("click", addIdea);
+  const inp = $("#ideaInput");
+  if (inp) inp.addEventListener("keydown", e => { if (e.key === "Enter") addIdea(); });
+  const go = $("#ideaGoSummary");
+  if (go) go.addEventListener("click", () => switchIdeaPane("summary"));
+  const back = $("#ideaBack");
+  if (back) back.addEventListener("click", () => switchIdeaPane("record"));
+  const list = $("#ideaList");
+  if (list) list.addEventListener("click", e => {
+    const item = e.target.closest(".idea-item");
+    if (!item) return;
+    const id = item.dataset.id;
+    const act = e.target.closest("[data-act]");
+    if (!act) return;
+    if (act.dataset.act === "topic") editIdeaTopic(id);
+    else if (act.dataset.act === "del") deleteIdea(id);
+    else if (act.dataset.act === "summary") switchIdeaPane("summary");
+  });
+}
+
+/* =========================================================
    好物欲望清单
    数据：Store.data.wishes = [{id,name,price,note,wantedAt,got}]
    未入手在前、已入手划线沉底；删除进回收站（30 天可恢复）
@@ -1075,7 +1228,8 @@ let moreMenu = null;
 const MORE_ITEMS = [
   { view: "skills",    name: "技能",  icon: '<path d="M4 19V9.5M9.3 19V5M14.6 19v-7.5M20 19v-4.5"/><path d="M3 21h18"/>', desc: "技能进度与训练" },
   { view: "checkin",   name: "打卡",  icon: '<path d="M12 21c3.6 0 6.5-2.7 6.5-6.2 0-2.4-1.3-4.2-3-6.1-1.3-1.5-2.6-3.1-3-5.2-.6 1.6-1.7 2.7-2.9 4C8 9.2 6.4 11 6.4 13.5 6.4 17.8 8.9 21 12 21z"/>', desc: "习惯打卡与统计" },
-  { view: "countdown", name: "倒计时", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', desc: "重要日期提醒" }
+  { view: "countdown", name: "倒计时", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', desc: "重要日期提醒" },
+  { view: "ideas",     name: "灵感区", icon: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2h6c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>', desc: "随手记一闪而过的念头" }
 ];
 function onMoreMenuOutside(e) {
   if (!moreMenu) return;
@@ -2347,6 +2501,7 @@ function normalizeData(obj) {
     logs: arr(obj.logs, cur && cur.logs),
     projects: arr(obj.projects, cur && cur.projects),
     wishes: arr(obj.wishes, cur && cur.wishes),
+    ideas: arr(obj.ideas, cur && cur.ideas),
     reviews: (obj.reviews && typeof obj.reviews === "object" && !Array.isArray(obj.reviews))
       ? obj.reviews
       : ((cur && cur.reviews) || {}),
@@ -3778,7 +3933,7 @@ function setLogMode(mode) {
 
 function switchView(view) {
   /* 技能/打卡/倒计时收纳在「更多」里：切到这些视图时高亮更多按钮 */
-  const inMore = ["skills", "checkin", "countdown"].indexOf(view) >= 0;
+  const inMore = ["skills", "checkin", "countdown", "ideas"].indexOf(view) >= 0;
   $$(".nav-item").forEach(b => {
     const on = b.dataset.view === view || (inMore && !!b.dataset.more);
     b.classList.toggle("active", on);
@@ -3806,6 +3961,8 @@ function switchView(view) {
     renderTodo();
   } else if (view === "log") {
     if (logMode === "review") renderReview(); else renderLog();
+  } else if (view === "ideas") {
+    switchIdeaPane("record");
   } else if (view === "countdown") {
     renderCountdown();
   }
@@ -3818,6 +3975,7 @@ function renderAll(scrollToNow = true) {
   if (tlMode === "week") renderWeek();
   renderNextCard();
   renderTodo();
+  renderIdeas();
   renderSkills();
   renderCheckin();
   renderCountdown();
@@ -4136,6 +4294,7 @@ function init() {
   bindTodoClicks("#todoList", ".todo-item");
   bindTodoClicks("#todoQuadView", ".quad-item");
   bindQuadDrag();
+  bindIdeaUI();
   const todoSeg = $("#todoSeg");
   if (todoSeg) todoSeg.addEventListener("click", e => {
     const b = e.target.closest(".seg-btn");

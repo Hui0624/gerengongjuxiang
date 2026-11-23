@@ -1890,3 +1890,58 @@ body.quad-dragging { user-select: none; }
   .home-col { min-width: 0; }
   .ht-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* =========================================================
+   灵感区（wb-v11 · 更多菜单进入 · 五规范：单主色/线性图标/无嵌套卡/5档字号/左对齐）
+   ========================================================= */
+.idea-view{--if1:20px;--if2:15px;--if3:13px;--if4:11px;--if5:9px;font-size:var(--if3)}
+.idea-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.idea-head h2{font-size:var(--if1);margin:0;font-weight:660}
+.idea-head .hint{font-size:var(--if4);color:var(--muted)}
+.idea-quick{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.iq-label{font-size:var(--if4);color:var(--muted);margin-bottom:8px}
+.iq-row{display:flex;gap:8px;flex-wrap:wrap}
+.iq-row .input{flex:1 1 240px;min-width:0}
+.iq-row .btn{flex:0 0 auto}
+.iq-row .ico{width:15px;height:15px}
+.iq-tip{font-size:var(--if4);color:var(--muted);margin-top:8px}
+.idea-bar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.idea-bar h3{font-size:var(--if2);margin:0;font-weight:620}
+.idea-count{font-size:var(--if4);color:var(--muted)}
+.idea-bar .btn{margin-left:auto;font-size:var(--if4)}
+.idea-bar .ico{width:14px;height:14px}
+.idea-list{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:2px 16px}
+.idea-item{display:flex;gap:11px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)}
+.idea-item:last-child{border-bottom:0}
+.idea-item .mark{width:3px;align-self:stretch;background:var(--green-line);border-radius:2px;flex:0 0 auto}
+.idea-item .body{flex:1;min-width:0}
+.idea-item .tx{font-size:var(--if3);line-height:1.5;word-break:break-word}
+.idea-item .meta{font-size:var(--if5);color:var(--muted);margin-top:5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.idea-item .ops{display:flex;gap:6px;flex:0 0 auto}
+.idea-mini{border:1px solid var(--border);background:var(--panel);border-radius:6px;padding:4px 9px;
+  font:inherit;font-size:var(--if5);color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.idea-mini:hover{border-color:var(--green-line);color:var(--green)}
+.idea-mini.go{color:var(--green);border-color:var(--green-line)}
+.idea-mini .ico{width:12px;height:12px}
+.idea-tag{font-size:var(--if5);padding:2px 7px;border-radius:5px;background:var(--panel-2);color:var(--muted);cursor:pointer;border:1px solid transparent}
+.idea-tag:hover{border-color:var(--green-line);color:var(--green)}
+.idea-empty{font-size:var(--if4);color:var(--muted);padding:20px 0;text-align:left}
+.idea-back{border:0;background:transparent;color:var(--green);font:inherit;font-size:var(--if4);
+  cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px;margin-bottom:12px}
+.idea-back .ico{width:14px;height:14px}
+.sum-note{background:var(--green-soft);border:1px solid var(--green-line);border-radius:10px;
+  padding:12px 15px;margin-bottom:14px;font-size:var(--if4);color:var(--text-2)}
+.sum-group{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:15px 17px;margin-bottom:12px}
+.sum-group .gh{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.sum-group .gh .ico{color:var(--green);width:17px;height:17px}
+.sum-group .gh .nm{font-size:var(--if2);font-weight:620}
+.sum-group .gh .n{font-size:var(--if5);color:var(--muted);background:var(--panel-2);padding:2px 7px;border-radius:5px}
+.sum-group .li{font-size:var(--if3);padding:7px 0 7px 16px;border-bottom:1px solid var(--border);position:relative;color:var(--text-2);line-height:1.45}
+.sum-group .li:last-child{border-bottom:0}
+.sum-group .li::before{content:"";position:absolute;left:2px;top:14px;width:5px;height:5px;border-radius:50%;background:var(--green-line)}
+@media(max-width:560px){
+  .iq-row .input{flex:1 1 100%}
+  .iq-row .btn{flex:1 1 auto;justify-content:center}
+  .idea-item{flex-wrap:wrap}
+  .idea-item .ops{width:100%;justify-content:flex-end}
+}

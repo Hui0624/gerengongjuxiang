@@ -49,3 +49,4 @@
 - 独立预览 `preview-optimize.html` 留本地、未推 GitHub。
 - 提醒：用户实际主题是 localStorage 记住的 dark（非 HTML 默认 light），两套主题都已去渐变，故无影响。
 - 2026-11-23 sec9：修复手机侧栏按钮偏左（改居中）+ 侧栏占宽导致首页待办文字竖排（首页卡片改单列，修正规则置文件末尾覆盖）。仅改 style.css / sw.js / STATE.md。
+- 2026-11-23 sec10：更多菜单加「灵感区」——快速记录灵感、点主题标签归类、「归纳」按钮进入按主题聚合的归纳灵区。数据层 ideas 三处同改+回收站。独立预览 `preview-idea.html` 未推 GitHub。

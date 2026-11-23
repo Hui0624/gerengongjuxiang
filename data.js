@@ -122,6 +122,9 @@ const DEFAULT_DATA = {
   /* 好物欲望清单：{ id, name, price, note, wantedAt, got }
      price/note 可选；got=true 表示已入手（列表划线沉底） */
   wishes: [],
+  /* 灵感区：{ id, text, topic, createdAt }
+     topic 手填主题标签（如 技术/学习/生活），归纳页按 topic 聚合 */
+  ideas: [],
   /* 周复盘的人工总结：{ "2026-W45": "这周的一句话" } */
   reviews: {},
   /* 回收站：删除的数据不真删，先挪到这里，30 天内可恢复
@@ -141,6 +144,8 @@ function fillItemDefaults(d) {
   d.projects = Array.isArray(d.projects) ? d.projects : [];
   d.wishes = (Array.isArray(d.wishes) ? d.wishes : []).map(w =>
     Object.assign({ price: "", note: "", wantedAt: todayStr(), got: false }, w));
+  d.ideas = (Array.isArray(d.ideas) ? d.ideas : []).map(i =>
+    Object.assign({ topic: "未分类", createdAt: todayStr() }, i));
   d.reviews = (d.reviews && typeof d.reviews === "object" && !Array.isArray(d.reviews)) ? d.reviews : {};
   /* 回收站：只保留结构正确的记录，丢掉脏数据 */
   d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(t => t && t.kind && t.item);
@@ -173,6 +178,7 @@ const Store = {
       logs: parsed && Array.isArray(parsed.logs) ? parsed.logs : [],
       projects: parsed && Array.isArray(parsed.projects) ? parsed.projects : [],
       wishes: parsed && Array.isArray(parsed.wishes) ? parsed.wishes : [],
+      ideas: parsed && Array.isArray(parsed.ideas) ? parsed.ideas : [],
       reviews: (parsed && parsed.reviews && typeof parsed.reviews === "object") ? parsed.reviews : {},
       trash: parsed && Array.isArray(parsed.trash) ? parsed.trash : []
     };
@@ -210,12 +216,12 @@ const Trash = {
 
   /* kind → 数据数组的字段名 */
   arrKey(kind) {
-    return { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs", wish: "wishes" }[kind] || "";
+    return { todo: "todos", countdown: "countdowns", skill: "skills", habit: "habits", log: "logs", wish: "wishes", idea: "ideas" }[kind] || "";
   },
 
   /* 可读名字，回收站里显示 */
   kindName(kind) {
-    return { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录", wish: "好物" }[kind] || "条目";
+    return { todo: "待办", countdown: "倒计时", skill: "技能", habit: "习惯", log: "记录", wish: "好物", idea: "灵感" }[kind] || "条目";
   },
 
   /* 移入回收站并返回被删的对象（方便调用方继续 filter 原数组） */

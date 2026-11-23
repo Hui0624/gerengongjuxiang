@@ -261,6 +261,31 @@
         </div>
       </section>
 
+      <!-- 灵感区（更多菜单进入） -->
+      <section id="view-ideas" class="view">
+        <div id="ideaRecord" class="idea-view">
+          <div class="idea-head"><h2>灵感区</h2><span class="hint">想到就记，别整理 · 攒多了再去归纳</span></div>
+          <div class="idea-quick">
+            <div class="iq-label">快速记录（回车即存）</div>
+            <div class="iq-row">
+              <input id="ideaInput" class="input" placeholder="一闪而过的念头…" />
+              <button id="ideaAdd" class="btn primary" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>记下</button>
+            </div>
+            <div class="iq-tip">不用写完整，半句话、几个词都行。</div>
+          </div>
+          <div class="idea-bar">
+            <h3>刚记的</h3><span class="idea-count" id="ideaCount">0 条</span>
+            <button class="btn" id="ideaGoSummary" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg>归纳</button>
+          </div>
+          <div id="ideaList" class="idea-list"></div>
+        </div>
+        <div id="ideaSummary" class="idea-view hidden">
+          <button class="idea-back" id="ideaBack" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>返回灵感区</button>
+          <div class="idea-head"><h2>归纳灵区</h2><span class="hint">按主题聚合，看得更清楚</span></div>
+          <div id="ideaSummaryBox"></div>
+        </div>
+      </section>
+
       <!-- 技能 -->
       <section id="view-skills" class="view">
         <div class="section-head"><h2>日常技能</h2><span class="hint">拖动进度条更新 · 训练方法可随时改</span></div>
