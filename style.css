@@ -1865,3 +1865,77 @@ body.quad-dragging { user-select: none; }
   .wish-add .btn { flex: 1 1 auto; }
 }
 
+
+/* =========================================================
+   个人中枢（wb-v20 · 单主色/线性图标/无嵌套卡/5档字号/左对齐）
+   8 个子模块：学业·事务·资料·经历 / 体重·流程 / 衣物·搭配
+   ========================================================= */
+#personalRoot{font-size:13px}
+/* 5 档字号：20/15/13/11/9 —— 全部用变量 --pf1..--pf5 */
+#personalRoot{--pf1:20px;--pf2:15px;--pf3:13px;--pf4:11px;--pf5:9px}
+.pv-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;text-align:left}
+.pv-head h2{font-size:var(--pf1);margin:0;font-weight:650}
+.pv-head span{font-size:var(--pf4);color:var(--muted)}
+/* 一级 tab：下划线式 */
+.pv-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap}
+.pv-tabs button{border:0;border-bottom:2px solid transparent;background:transparent;
+  padding:8px 16px;font:inherit;font-size:var(--pf3);color:var(--muted);cursor:pointer;text-align:left}
+.pv-tabs button.on{color:var(--green);border-bottom-color:var(--green);font-weight:600}
+/* 二级 tab：药丸 */
+.pv-subs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.pv-subs button{border:1px solid var(--border);background:var(--panel);color:var(--muted);
+  padding:5px 12px;border-radius:6px;font:inherit;font-size:var(--pf4);cursor:pointer;text-align:left}
+.pv-subs button.on{background:var(--green-soft);border-color:var(--green-line);color:var(--green);font-weight:600}
+.pv-pane{display:none}.pv-pane.on{display:block}
+/* 分组：只有一个外框，内部表格/列表，不套卡片 */
+.pv-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.pv-card h3{font-size:var(--pf2);font-weight:620;margin:0 0 12px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pv-card h3 small{font-size:var(--pf4);font-weight:400;color:var(--muted)}
+.pv-add{font-size:var(--pf4);color:var(--green);border:1px solid var(--green-line);
+  background:var(--green-soft);padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.pv-add:hover{border-color:var(--green)}
+/* 仪表条：浅带 + 分隔线，不用卡片 */
+.pv-metrics{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel-2);
+  border:1px solid var(--border);border-radius:10px;padding:12px 0;margin-bottom:14px}
+.pv-metric{padding:0 18px;border-right:1px solid var(--border);text-align:left}
+.pv-metric:last-child{border-right:0}
+.pv-metric .k{font-size:var(--pf4);color:var(--muted)}
+.pv-metric .v{font-size:var(--pf2);font-weight:660;color:var(--green);margin-top:2px}
+.pv-metric .s{font-size:var(--pf5);color:var(--muted)}
+/* 表格 */
+.pv-table{width:100%;border-collapse:collapse;font-size:var(--pf3);text-align:left}
+.pv-table th,.pv-table td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--border)}
+.pv-table th{color:var(--muted);font-weight:500;font-size:var(--pf4)}
+.pv-table tr:last-child td{border-bottom:0}
+.pv-tag{display:inline-block;padding:2px 7px;border-radius:5px;font-size:var(--pf5);
+  background:var(--panel-2);color:var(--muted)}
+.pv-tag.on{background:var(--green-soft);color:var(--green)}
+/* 列表行（不套卡片） */
+.pv-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border);text-align:left}
+.pv-row:last-child{border-bottom:0}
+.pv-row .ico{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:var(--green);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pv-row .main{flex:1;min-width:0}
+.pv-row .t{font-size:var(--pf3);font-weight:600}
+.pv-row .m{font-size:var(--pf4);color:var(--muted);margin-top:2px}
+.pv-row .ext{font-size:var(--pf4);color:var(--green);text-decoration:none;white-space:nowrap}
+.pv-row .act{font-size:var(--pf4);color:var(--muted);border:0;background:none;cursor:pointer;padding:3px 5px}
+.pv-row .act:hover{color:var(--green)}
+.pv-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+/* 体重图 + 数字 */
+.pv-chartrow{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap;text-align:left}
+.pv-chart{flex:1;min-width:260px}.pv-chart svg{width:100%;height:auto;display:block}
+.pv-fig .big{font-size:var(--pf1);font-weight:680;color:var(--green)}
+.pv-fig .unit{font-size:var(--pf4);color:var(--muted)}
+.pv-fig .d{font-size:var(--pf4);color:var(--muted);margin-top:4px}
+/* 流程列表 */
+.pv-flow{list-style:none;margin:0;padding:0;counter-reset:st}
+.pv-flow li{counter-increment:st;position:relative;padding:6px 0 6px 32px;font-size:var(--pf3);text-align:left}
+.pv-flow li::before{content:counter(st);position:absolute;left:0;top:5px;width:20px;height:20px;
+  border-radius:50%;background:var(--green-soft);color:var(--green);font-size:var(--pf5);
+  font-weight:600;display:grid;place-items:center}
+/* 空态 */
+.pv-empty{font-size:var(--pf4);color:var(--muted);padding:14px 0;text-align:left}
+@media(max-width:560px){
+  .pv-metrics{grid-template-columns:1fr 1fr}
+  .pv-metric{border-right:0;border-bottom:1px solid var(--border);padding:9px 14px}
+}
