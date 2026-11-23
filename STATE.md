@@ -11,7 +11,7 @@
 | 本地工作树 | wb-v11 + 本轮优化（安全清理、文档、同步/转义）未提交 |
 | 线上地址 | https://hui0624.github.io/gerengongjuxiang/ |
 | 本地预览 | `node server.js` → http://localhost:7788 |
-| `sw.js` VERSION | `wb-v11-sec8`（视觉规范优化版；发布新改动前必须往上加） |
+| `sw.js` VERSION | `wb-v11-sec9`（手机侧栏居中修复版；发布新改动前必须往上加） |
 | 数据同步 | GitHub 私有 Gist（只传数据 `wb_data_v1`，不传代码） |
 | 代码同步 | GitHub REST API 推 `main`（git 协议在本沙箱被 schannel 拦，不可用） |
 
@@ -35,6 +35,7 @@
 - **11-22 飞书提醒目录删除**：用户在 GitHub 网页端自行删除了 `飞书提醒/` 目录（main HEAD `8057ab7`）。本地该目录仍在（未同步删除），但主程序从不引用它，不影响运行
 - **11-23 视觉规范优化（sec8）**：用户给五条规范，先出独立预览 `preview-optimize.html`（未推）。正式接入：① 去渐变——theme.css 四套主题(app-bg/nav-active-bg/hero-bg/course-bg/todo-bg/accent-grad/fill-grad)全部拍平纯色，style.css 装饰渐变(stat-card/顶饰线等)拍平；保留 2 处功能性渐变(conic 环形进度、tc-preview 双色预览)和照片主题文字遮罩。② 按钮点击/聚焦边缘留光——全局 `:focus`/`:focus-visible` 加柔光圈(box-shadow 0 0 0 2px panel + 4px green-line + 12px green-soft)。③ 整周课表隐藏「下一项」——`setTlMode` 里 `nextCard` 按 week 模式 toggle hidden。④ 手机端底部导航改左侧竖排窄栏(760px 断点 layout 恢复 row、sidenav 66px 竖排；560px 收窄到 58px)。⑤ 图标线性化——MORE_ITEMS emoji 换线性 SVG、时段/整周按钮 emoji 换 SVG(整周按钮文字包 `.wk-full-label` span，切换时只改 span 不覆盖 SVG)。注意：用户实际主题是 localStorage 记住的 dark，两套主题都已去渐变。独立预览文件不推 GitHub
 - **11-23 个人中枢 v20 做了又退回**：v20（个人中枢 8 模块）先上线 `fbef5d0`，用户要求退回，已用新提交 `fce92f9` 回退到 sec7（保留 git 历史）。v20 文件备份在 `.workbuddy/backup-20261116/v20-backup/`，详情见 11-23 工作日志
+- **11-23 手机侧栏居中修复（sec9）**：用户截图反馈侧栏按钮图标文字偏左。根因：760 断点给 `.nav-item` 设了 `align-items:flex-start`（为守"文字左对齐"规范，但窄栏按钮竖排时必须居中）。改为 `align-items:center`+`text-align:center`；560 断点同步。顺带发现侧栏占宽后首页 `home-cols` 两列把待办文字挤成竖排——因为基础定义 `.home-cols{grid-template-columns:repeat(2)}` 在文件后面覆盖了断点内的单列规则（同源特异性后者覆盖），把单列修正**追加到文件末尾**才生效，待办/课程改单列、`.ht-text` nowrap+省略号。另外把 `.nav-item:focus` 从我加的按钮光圈里移除（导航已有 active 高亮，再加光圈显杂乱）。截图验证侧栏居中、待办文字完整、无光圈框。仅改 style.css + sw.js + STATE.md
 
 ## 未完成 / 待用户
 

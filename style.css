@@ -101,7 +101,7 @@ input, textarea, select { font-family: inherit; }
 
 /* 点击 / 聚焦后：边缘留光突出（单主色柔光圈，统一所有可点元素） */
 .btn:focus, .btn:focus-visible,
-.nav-item:focus, .seg-btn:focus, .icon-btn:focus,
+.seg-btn:focus, .icon-btn:focus,
 .skill-card:focus, .quad-item:focus, [role="button"]:focus,
 button:focus-visible {
   outline: none;
@@ -572,12 +572,15 @@ button:focus-visible {
   .nav-item {
     flex: 0 0 auto; width: 100%; min-width: 0;
     flex-direction: column; gap: 3px; padding: 9px 2px;
-    font-size: 10px; text-align: left; justify-content: center; align-items: flex-start;
+    font-size: 10px; text-align: center; justify-content: center; align-items: center;
   }
-  .nav-item .ni { width: 19px; height: 19px; }
+  .nav-item .ni { width: 19px; height: 19px; display: grid; place-items: center; }
   .nav-item .ni svg { width: 18px; height: 18px; }
   .content { padding: 16px 12px 24px; }
   .tl-scroll { height: calc(100dvh - 300px); }
+  /* 侧栏占宽后主区变窄：首页卡片改单列，文字不竖排 */
+  .home-cols { grid-template-columns: 1fr; }
+  .ht-text, .hc-name, .hh-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 窄屏下增加行竖排、输入框占满整行，按钮更好点 */
   .add-row { flex-direction: column; align-items: stretch; }
   .add-row .input, .add-row .btn { width: 100%; }
@@ -1593,7 +1596,7 @@ button:focus-visible {
 /* 导航 7 项，窄屏收一点，避免最后一项被挤出屏幕 */
 @media (max-width: 560px) {
   .sidenav { width: 58px; flex-basis: 58px; gap: 2px; padding: 10px 4px; }
-  .nav-item { font-size: 9px; padding: 8px 1px; gap: 2px; }
+  .nav-item { font-size: 9px; padding: 8px 1px; gap: 2px; text-align: center; align-items: center; }
   .nav-item > span { white-space: nowrap; }
   .nav-item .ni { width: 17px; height: 17px; }
   .nav-item .ni svg { width: 16px; height: 16px; }
@@ -1880,3 +1883,10 @@ body.quad-dragging { user-select: none; }
   .wish-add .btn { flex: 1 1 auto; }
 }
 
+
+/* 手机端侧栏占宽后的最终修正（置末尾，确保覆盖前面的基础两列定义） */
+@media (max-width: 760px) {
+  .home-cols { grid-template-columns: 1fr; gap: 12px; }
+  .home-col { min-width: 0; }
+  .ht-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}

@@ -48,3 +48,4 @@
 - 视觉规范优化 sec8 已上线：四套主题去渐变改纯色、按钮点击/聚焦边缘留光、整周课表隐藏「下一项」、手机端底部导航改左侧竖排窄栏、MORE_ITEMS 与时段/整周按钮 emoji 换线性 SVG。详见 STATE.md 11-23 条。
 - 独立预览 `preview-optimize.html` 留本地、未推 GitHub。
 - 提醒：用户实际主题是 localStorage 记住的 dark（非 HTML 默认 light），两套主题都已去渐变，故无影响。
+- 2026-11-23 sec9：修复手机侧栏按钮偏左（改居中）+ 侧栏占宽导致首页待办文字竖排（首页卡片改单列，修正规则置文件末尾覆盖）。仅改 style.css / sw.js / STATE.md。
