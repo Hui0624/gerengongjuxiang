@@ -1949,3 +1949,13 @@ body.quad-dragging { user-select: none; }
 /* 归档区的灵感：灰显表示已收起 */
 .idea-item.archived .tx { color: var(--muted); }
 .idea-item.archived .mark { background: var(--border); }
+
+/* 四象限顶部快速添加栏（与列表输入栏同款，多一个象限下拉） */
+.quad-add { margin-bottom: 12px; }
+.quad-add .quad-input { flex: 0 0 auto; width: auto; min-width: 118px; }
+@media (max-width: 560px) {
+  .quad-add { flex-wrap: wrap; }
+  .quad-add .todo-quick { flex: 1 1 100%; }
+  .quad-add .quad-input { flex: 1 1 auto; }
+  .quad-add .btn { flex: 1 1 auto; justify-content: center; }
+}

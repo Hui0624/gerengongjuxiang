@@ -783,19 +783,20 @@ function todoItemHTML(t) {
 
 function renderTodo() {
   const list = $("#todoList"), quadView = $("#todoQuadView"), wishView = $("#todoWishView");
-  const addBar = $("#todoAddBar"), adv = $("#todoAdv");
+  const addBar = $("#todoAddBar"), quadAddBar = $("#quadAddBar"), adv = $("#todoAdv");
   const hint = $("#todoHint");
   /* 列表 / 四象限 / 好物欲望清单三态互斥 */
   if (list) list.classList.toggle("hidden", todoMode !== "list");
   if (quadView) quadView.classList.toggle("hidden", todoMode !== "quad");
   if (wishView) wishView.classList.toggle("hidden", todoMode !== "wish");
-  /* 待办输入框只在「列表」模式显示；四象限/好物清单各有自己的交互，不显示它。
+  /* 列表用 #todoAddBar，四象限用 #quadAddBar（紧贴象限上方），好物清单各自有输入区。
      列表模式不碰 #todoAdv 的 hidden，保留「更多」按钮的展开状态。 */
   if (addBar) addBar.classList.toggle("hidden", todoMode !== "list");
+  if (quadAddBar) quadAddBar.classList.toggle("hidden", todoMode !== "quad");
   if (adv && todoMode !== "list") adv.classList.add("hidden");
   if (hint) hint.textContent = todoMode === "wish"
     ? "记想要的东西，点「待买」变「已入手」"
-    : (todoMode === "quad" ? "按住 ⋮⋮ 拖动排序 · 点空白改象限" : "设定时间后会出现在时间线上");
+    : (todoMode === "quad" ? "上方直接添加 · 按住 ⋮⋮ 拖动排序 · 点空白改象限" : "设定时间后会出现在时间线上");
 
   if (todoMode === "quad") { renderTodoQuad(); return; }
   if (todoMode === "wish") { renderWishes(); return; }
@@ -1521,6 +1522,24 @@ function addTodo() {
   renderTodo(); renderTimeline(); renderNextCard(); renderHome();
   const dLabel = date === todayStr() ? "今天" : date.slice(5).replace("-", "/");
   toast(`已加入 ${dLabel}${time ? " " + time : ""}`);
+}
+
+/* 四象限顶部输入栏：直接把任务加到选中的象限 */
+function addQuadTodo() {
+  const inp = $("#quadTodoText");
+  const raw = inp ? (inp.value || "").trim() : "";
+  if (!raw) { if (inp) inp.focus(); toast("写一句再添加"); return; }
+  const sel = $("#quadTodoQuad");
+  const quad = parseInt(sel && sel.value, 10) || 2;
+  const p = parseTodoInput(raw);
+  Store.data.todos.push({
+    id: uid(), text: p.text, date: p.date || todayStr(),
+    time: p.time || "", end: p.end || "", quad, done: false
+  });
+  Store.save();
+  if (inp) inp.value = "";
+  renderTodo(); renderTimeline(); renderNextCard(); renderHome();
+  toast("已加到 " + (QUADS[quad] ? QUADS[quad].name : "象限 " + quad));
 }
 
 /* 时间线点空白处：快速建一条当天的待办 */
@@ -4293,6 +4312,10 @@ function init() {
   /* 待办 */
   $("#todoAdd").addEventListener("click", addTodo);
   $("#todoText").addEventListener("keydown", e => { if (e.key === "Enter") addTodo(); });
+  const quadAdd = $("#quadTodoAdd");
+  if (quadAdd) quadAdd.addEventListener("click", addQuadTodo);
+  const quadInp = $("#quadTodoText");
+  if (quadInp) quadInp.addEventListener("keydown", e => { if (e.key === "Enter") addQuadTodo(); });
   const todoMore = $("#todoMore");
   if (todoMore) todoMore.addEventListener("click", () => {
     const adv = $("#todoAdv");

@@ -208,6 +208,17 @@
           </select>
         </div>
         <div id="todoList" class="todo-list"></div>
+        <!-- 四象限专用输入栏：象限正上方直接添加 -->
+        <div id="quadAddBar" class="todo-add quad-add hidden">
+          <input id="quadTodoText" class="input todo-quick" placeholder="加任务到象限…（回车即加）" />
+          <select id="quadTodoQuad" class="input quad-input" title="加到哪个象限">
+            <option value="1">①重要紧急</option>
+            <option value="2" selected>②重要不急</option>
+            <option value="3">③紧急不重要</option>
+            <option value="4">④不重要不急</option>
+          </select>
+          <button id="quadTodoAdd" class="btn primary" type="button">添加</button>
+        </div>
         <div id="todoQuadView" class="todo-quad hidden"></div>
 
         <!-- 好物欲望清单（待办第三格） -->
