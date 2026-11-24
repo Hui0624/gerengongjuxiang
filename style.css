@@ -1959,3 +1959,37 @@ body.quad-dragging { user-select: none; }
   .quad-add .quad-input { flex: 1 1 auto; }
   .quad-add .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* =========================================================
+   v13 视觉优化（wb-v11 · 末尾覆盖块，确保覆盖前面的基础定义）
+   5 点：内容限宽居中 / 首页两列等高 / 卡片收紧 / 字号放大一档 / 单主色无渐变
+   不动功能、数据、导航；适用于所有主题（含暗夜黑），不强制切主题
+   ========================================================= */
+/* 1) 主内容限宽居中：视图本身限宽，不影响 .content 滚动 */
+.content > .view { max-width: 1100px; margin-left: auto; margin-right: auto; }
+
+/* 2) 首页两列等高：左待办 / 右课程+打卡堆叠，底部齐平 */
+.home-grid-v13 { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.home-col-stack { display: flex; flex-direction: column; min-width: 0; }
+.home-col-stack > .home-box:first-of-type { flex: 0 0 auto; }
+.home-grid-v13 > .home-col > .home-box { flex: 1 1 auto; }
+
+/* 3) 卡片收紧：减少内部空白，操作/标签靠近内容 */
+.todo-item { gap: 10px; padding: 11px 13px; }
+.todo-item .ti-text, .home-todo-item .ht-text { font-size: 14px; }
+.next-card { padding: 13px 16px; gap: 12px; }
+.next-card .nc-main { font-size: 17px; }
+
+/* 4) 字号放大一档（正文 13→14，辅助 11→12，仍是 5 档以内的层级） */
+.section-head .hint, .home-box .hint, .ti-tag { font-size: 12px; }
+.home-todo-item, .home-course, .home-habit { font-size: 14px; }
+
+/* 窄屏恢复单列（限宽不生效） */
+@media (max-width: 820px) {
+  .content > .view { max-width: none; }
+  .home-grid-v13 { grid-template-columns: 1fr; }
+}
+
+/* v13 修正：两列都设为 flex 列，让卡片拉伸到底部齐平 */
+.home-grid-v13 > .home-col { display: flex; flex-direction: column; min-width: 0; }
+.home-grid-v13 > .home-col > .home-box { flex: 1 1 auto; }

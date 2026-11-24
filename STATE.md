@@ -11,7 +11,7 @@
 | 本地工作树 | wb-v11 + 本轮优化（安全清理、文档、同步/转义）未提交 |
 | 线上地址 | https://hui0624.github.io/gerengongjuxiang/ |
 | 本地预览 | `node server.js` → http://localhost:7788 |
-| `sw.js` VERSION | `wb-v11-sec12`（四象限顶部直接添加版；发布新改动前必须往上加） |
+| `sw.js` VERSION | `wb-v13.0`（页面视觉优化大版本；发布新改动前必须往上加） |
 | 数据同步 | GitHub 私有 Gist（只传数据 `wb_data_v1`，不传代码） |
 | 代码同步 | GitHub REST API 推 `main`（git 协议在本沙箱被 schannel 拦，不可用） |
 
@@ -39,6 +39,7 @@
 - **11-23 灵感区（sec10）**：「更多」菜单加第 4 项「灵感区」(灯泡线性图标，inMore 高亮)。数据层 `ideas=[{id,text,topic,createdAt}]` 三处同改 + 回收站 idea 映射。独立 `#view-ideas`：快速记录(回车即存)、灵感列表(点主题标签改 topic)、「归纳」按钮切到归纳灵区(按 topic 聚合分组，主题名匹配猜图标)。`renderIdeas/addIdea/editIdeaTopic/deleteIdea/renderIdeaSummary/switchIdeaPane/bindIdeaUI`，switchView+renderAll+init 接入。视觉五规范(局部 --if1..5 五档字号)。先出独立预览 `preview-idea.html`(未推)。用户确认按手填主题聚合、不搞 AI 分类。数据单测 6 PASS，无头浏览器灵感视图渲染正常无 JS 错误
 - **11-23 灵感区改为归档（sec11）**：用户指出方向做错——要的是「归档」不是「按主题分类归纳」。ideas 加 `archived`/`archivedAt` 字段（fillItemDefaults 兼容旧数据）。记录页只显示未归档项，每条按钮从「归纳」换成「归档」；点归档移入归档区（不真删），归档区可「还原」或「删除」（删除仍进回收站）。删掉按 topic 聚合的归纳视图和相关图标，主题标签保留为可选备注。index.html 的 ID/文案全改（ideaGoArchive/ideaArchive/ideaArchiveBox），app.js 加 archiveIdea/restoreIdea/renderIdeaArchive，switchIdeaPane 改 archive 语义。单测归档分流 5 项过，浏览器渲染无旧「归纳」残留、无 JS 错误
 - **11-24 四象限顶部直接添加（sec12）**：用户要像列表那样在四象限上方加任务。新增 `#quadAddBar`（在 `#todoQuadView` **外面**上方，避免破坏 quad 的 grid 布局）：输入框 + 象限下拉(#quadTodoQuad) + 添加按钮，回车即加。app.js `renderTodo` 里按 todoMode 显隐 quadAddBar（list 显 todoAddBar、quad 显 quadAddBar、wish 都隐），hint 文案加"上方直接添加"；新增 `addQuadTodo()`（复用 parseTodoInput 解析时间/日期，quad 以下拉为准），init 里绑按钮+回车。CSS 加 `.quad-add` 及 560px 窄屏折行。单测象限写入/时间解析/象限筛选过，浏览器 DOM 四元素在、初始 list 模式 hidden、无 JS 错误
+- **11-25 页面视觉优化大版本 v13.0**：用户挂 web-design-layout+zxh-html-design 技能要求备份后优化页面。备份到 `.workbuddy/backup-20261116/v12-before-optimize/`（9 文件，线上提交点 79589f9）。AskUserQuestion 确认方向：按 5 点方案全面优化 + 先出 HTML 预览（`preview-redesign.html`，shot.py 自检桌面/手机截图，未推）。用户 ok 推送后正式接入：① `.content > .view` max-width 1100px 居中限宽（820px 以下取消）② 首页 HTML 结构改为左待办 / 右课程+打卡堆叠（`.home-grid-v13`），两列 flex 拉伸底部齐平 ③ 待办/首页卡片 padding/gap 收紧、删除按钮靠近内容 ④ 字号放大一档（正文 13→14、辅助 11→12、next-main 16→17，仍守 5 档）⑤ 保留暗色主题不强切（样式适用所有主题，用户切简洁白即得预览效果）。CSS 用**末尾覆盖块**写法（同源特异性后者覆盖，之前踩过坑）。截图验证限宽/等高/字号生效无错位。仅改 index.html/style.css/sw.js/STATE/HANDOFF。**没动**：功能/数据/导航/主题选择/砍掉的模块
 
 ## 未完成 / 待用户
 
